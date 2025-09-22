@@ -4,4 +4,6 @@ class IntegrationSetting < ApplicationRecord
   belongs_to :company
 
   validates :company_id, presence: true
+
+  encrypts :credentials, deterministic: true
 end

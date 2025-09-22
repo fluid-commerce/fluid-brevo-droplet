@@ -5,11 +5,11 @@ default: &default
 
 development:
   <<: *default
-  database: droplet_template_development
+  database: droplet_brevo_development
 
 test:
   <<: *default
-  database: droplet_template_test
+  database: droplet_brevo_test
 
 production:
   primary:

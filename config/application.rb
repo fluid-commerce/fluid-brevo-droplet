@@ -2,6 +2,11 @@ require_relative "boot"
 
 require "rails/all"
 
+require 'dotenv'
+
+# Loads .env.test in test, .env.development in development, etc.
+Dotenv.load(".env.#{Rails.env}", ".env.local", ".env")
+
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)

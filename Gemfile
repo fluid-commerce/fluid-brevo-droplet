@@ -22,6 +22,16 @@ gem "solid_queue"
 gem "thruster", require: false
 gem "vite_rails", "~> 3.0", ">= 3.0.19"
 
+# Interactors for organizing business logic
+# Interactor provides a common interface for performing complex interactions [https://github.com/collectiveidea/interactor]
+gem "interactor", "~> 3.1"
+# Organizes multiple interactors into a single, reusable unit [https://github.com/collectiveidea/interactor-rails]
+gem "interactor-rails", "~> 2.3"
+
+gem "json-schema", "~> 4.3"
+
+gem "redis", "~> 5.4"
+
 group :development, :test do
   gem "brakeman", require: false
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
@@ -31,6 +41,7 @@ group :development, :test do
   gem "rubocop-performance", require: false
   gem "rubocop-rails", require: false
   gem "rubocop-rails-omakase", require: false
+  gem 'rspec-rails', '~> 6.1.0'
 end
 
 group :development do
@@ -39,5 +50,8 @@ end
 
 group :test do
   gem "capybara"
+  gem "factory_bot_rails"
   gem "selenium-webdriver"
+  gem "vcr"
+  gem "webmock"
 end

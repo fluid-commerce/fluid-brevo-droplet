@@ -34,9 +34,10 @@ class DropletInstalledJob < WebhookEventJob
         "[DropletInstalledJob] Failed to create company: #{company.errors.full_messages.join(', ')}"
       )
       return
+    else
+      create_integration_setting(company)
+      register_active_callbacks(company)
     end
-
-    register_active_callbacks(company)
   end
 
 private
@@ -73,5 +74,9 @@ private
     if installed_callback_ids.any?
       company.update(installed_callback_ids: installed_callback_ids)
     end
+  end
+
+  def create_integration_setting(company)
+    IntegrationSetting.create(company: company, enabled: true)
   end
 end

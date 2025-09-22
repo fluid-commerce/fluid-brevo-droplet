@@ -141,11 +141,6 @@ GEM
       multi_xml (>= 0.5.2)
     i18n (1.14.7)
       concurrent-ruby (~> 1.0)
-    interactor (3.2.0)
-      ostruct
-    interactor-rails (2.3.0)
-      interactor (~> 3.0)
-      railties (>= 7.0)
     io-console (0.8.1)
     irb (1.15.2)
       pp (>= 0.6.0)
@@ -465,8 +460,6 @@ DEPENDENCIES
   devise (~> 4.9)
   factory_bot_rails
   httparty (~> 0.23.1)
-  interactor (~> 3.1)
-  interactor-rails (~> 2.3)
   jbuilder
   json-schema (~> 4.3)
   json_schemer (~> 2.4)

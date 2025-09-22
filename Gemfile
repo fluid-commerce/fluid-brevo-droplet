@@ -22,12 +22,6 @@ gem "solid_queue"
 gem "thruster", require: false
 gem "vite_rails", "~> 3.0", ">= 3.0.19"
 
-# Interactors for organizing business logic
-# Interactor provides a common interface for performing complex interactions [https://github.com/collectiveidea/interactor]
-gem "interactor", "~> 3.1"
-# Organizes multiple interactors into a single, reusable unit [https://github.com/collectiveidea/interactor-rails]
-gem "interactor-rails", "~> 2.3"
-
 gem "json-schema", "~> 4.3"
 
 gem "redis", "~> 5.4"

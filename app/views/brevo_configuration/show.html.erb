@@ -1,0 +1,46 @@
+<% content_for :head do %>
+  <%= vite_typescript_tag 'brevo.tsx' %>
+<% end %>
+
+<!-- Data for React component -->
+<script type="application/json" id="company-data">
+  <%= raw (@company&.as_json(include: :integration_setting) || {}).to_json %>
+</script>
+
+<!-- Debug information -->
+<script type="application/json" id="debug-data">
+  <%= raw ({
+    company_id: @company&.id,
+    integration_setting_id: @company&.integration_setting&.id,
+    credentials: @company&.integration_setting&.credentials,
+    has_api_key: @company&.integration_setting&.credentials&.dig('brevo', 'api_key').present?
+  }).to_json %>
+</script>
+
+<script type="application/json" id="flash-messages-data">
+  <%= raw (flash.to_h || {}).to_json %>
+</script>
+
+<% if local_assigns[:error] %>
+  <script type="application/json" id="error-data">
+    <%= raw ({ error: local_assigns[:error] }).to_json %>
+  </script>
+<% end %>
+
+<div id="root"></div>
+
+<noscript>
+  <div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+      <div class="bg-white shadow rounded-lg p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4">Brevo Integration</h1>
+        <p class="text-gray-600 mb-4">
+          This page requires JavaScript to function properly. Please enable JavaScript in your browser to access the Brevo configuration interface.
+        </p>
+        <p class="text-sm text-gray-500">
+          If you continue to see this message, please check that JavaScript is enabled in your browser settings.
+        </p>
+      </div>
+    </div>
+  </div>
+</noscript>

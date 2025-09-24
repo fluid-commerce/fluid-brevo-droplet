@@ -9,55 +9,8 @@ class BrevoClient
     @api_key = api_key
   end
 
-  private
-
   def api_key
     @api_key || ENV['BREVO_API_KEY']
-  end
-
-  def default_headers
-    {
-      'api-key' => api_key,
-      'Content-Type' => 'application/json',
-      'Accept' => 'application/json'
-    }
-  end
-
-  def make_request(method, endpoint, options = {})
-    response = self.class.send(
-      method,
-      endpoint,
-      {
-        headers: default_headers,
-        timeout: 30
-      }.merge(options)
-    )
-
-    handle_response(response)
-  end
-
-  def handle_response(response)
-    case response.code
-    when 200..299
-      response.parsed_response
-    when 400
-      raise BrevoApiError.new("Bad Request: #{response.parsed_response['message']}", response.code)
-    when 401
-      raise BrevoApiError.new("Unauthorized: Invalid API key", response.code)
-    when 403
-      raise BrevoApiError.new("Forbidden: #{response.parsed_response['message']}", response.code)
-    when 404
-      raise BrevoApiError.new("Not Found: #{response.parsed_response['message']}", response.code)
-    when 429
-      raise BrevoApiError.new("Rate Limited: Too many requests", response.code)
-    when 500..599
-      raise BrevoApiError.new("Server Error: #{response.parsed_response['message']}", response.code)
-    else
-      raise BrevoApiError.new("Unexpected error: #{response.parsed_response['message']}", response.code)
-    end
-  rescue HTTParty::Error => e
-    Rails.logger.error "Brevo HTTP Error: #{e.message}"
-    raise BrevoApiError.new("HTTP Error: #{e.message}", 0)
   end
 
   # Email API methods
@@ -142,6 +95,15 @@ class BrevoClient
     make_request(:get, "/webhooks/#{webhook_id}")
   end
 
+  # Account API methods
+  def get_account
+    make_request(:get, '/account')
+  end
+
+  def get_account_limits
+    make_request(:get, '/account/limits')
+  end
+
   # Lists API methods
   def create_list(list_params)
     make_request(:post, '/contacts/lists', body: list_params.to_json)
@@ -177,15 +139,6 @@ class BrevoClient
     make_request(:delete, "/contacts/attributes/#{attribute_name}")
   end
 
-  # Account API methods
-  def get_account
-    make_request(:get, '/account')
-  end
-
-  def get_account_limits
-    make_request(:get, '/account/limits')
-  end
-
   # Templates API methods
   def get_templates(options = {})
     query_params = options.any? ? "?#{options.to_query}" : ""
@@ -212,6 +165,59 @@ class BrevoClient
 
   def update_contacts_batch(contacts_data)
     make_request(:put, '/contacts/batch', body: contacts_data.to_json)
+  end
+
+  private
+
+  def default_headers
+    {
+      'api-key' => api_key,
+      'Content-Type' => 'application/json',
+      'Accept' => 'application/json'
+    }
+  end
+
+  def make_request(method, endpoint, options = {})
+    Rails.logger.info "BrevoClient making #{method.upcase} request to: #{endpoint}"
+    Rails.logger.info "Request headers: #{default_headers.inspect}"
+    
+    response = self.class.send(
+      method,
+      endpoint,
+      {
+        headers: default_headers,
+        timeout: 30
+      }.merge(options)
+    )
+
+    Rails.logger.info "BrevoClient response code: #{response.code}"
+    Rails.logger.info "BrevoClient response body: #{response.parsed_response.inspect}"
+    
+    handle_response(response)
+  end
+
+  def handle_response(response)
+    case response.code
+    when 200..299
+      response.parsed_response
+    when 400
+      raise BrevoApiError.new("Bad Request: #{response.parsed_response['message']}", response.code)
+    when 401
+      raise BrevoApiError.new("Unauthorized: Invalid API key", response.code)
+    when 403
+      raise BrevoApiError.new("Forbidden: #{response.parsed_response['message']}", response.code)
+    when 404
+      raise BrevoApiError.new("Not Found: #{response.parsed_response['message']}", response.code)
+    when 429
+      raise BrevoApiError.new("Rate Limited: Too many requests", response.code)
+    when 500..599
+      raise BrevoApiError.new("Server Error: #{response.parsed_response['message']}", response.code)
+    else
+      raise BrevoApiError.new("Unexpected error: #{response.parsed_response['message']}", response.code)
+    end
+  rescue HTTParty::Error => e
+    Rails.logger.error "Brevo HTTP Error: #{e.message}"
+    raise BrevoApiError.new("HTTP Error: #{e.message}", 0)
   end
 end
 

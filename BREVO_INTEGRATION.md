@@ -40,7 +40,7 @@ For each company, you can set up Brevo credentials:
 company = Company.find(1)
 integration_setting = company.integration_setting
 integration_setting.brevo_api_key = "your_api_key"
-integration_setting.enabled = true
+company.integration_setting.credentials['brevo'] = { 'api_key' => 'your_brevo_api_key' }
 integration_setting.save!
 ```
 
@@ -231,7 +231,7 @@ Each company can have its own Brevo configuration stored in the `integration_set
 ```ruby
 integration_setting = company.integration_setting
 integration_setting.brevo_api_key = "company_specific_api_key"
-integration_setting.enabled = true
+company.integration_setting.credentials['brevo'] = { 'api_key' => 'your_brevo_api_key' }
 integration_setting.save!
 ```
 

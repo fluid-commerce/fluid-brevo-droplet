@@ -19,7 +19,7 @@ class IntegrationSetting < ApplicationRecord
   end
 
   def brevo_enabled?
-    enabled? && brevo_api_key.present?
+    brevo_api_key.present?
   end
 
   def brevo_client

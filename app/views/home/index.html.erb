@@ -1,7 +1,13 @@
 <% content_for :head do %>
   <%= vite_typescript_tag 'home.tsx' %>
 <% end %>
-<header class="p-2 flex justify-end">
-  <%= link_to "Sign in", new_user_session_path %>
+<header class="p-2 flex justify-between items-center">
+  <div class="flex space-x-4">
+    <%= link_to "Brevo Integration (React)", brevo_configuration_path, 
+        class: "text-blue-600 hover:text-blue-800 font-medium" %>
+  </div>
+  <div>
+    <%= link_to "Sign in", new_user_session_path %>
+  </div>
 </header>
 <div id="root"></div>

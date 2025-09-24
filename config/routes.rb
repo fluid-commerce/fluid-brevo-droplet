@@ -5,6 +5,13 @@ Rails.application.routes.draw do
 
   post "webhook", to: "webhooks#create", as: :webhook
   post "brevo/webhook", to: "brevo_webhooks#receive", as: :brevo_webhook
+  
+  # Brevo configuration (public access)
+  get "brevo", to: "brevo_configuration#show", as: :brevo_configuration
+  patch "brevo", to: "brevo_configuration#update"
+  post "brevo/verify_connection", to: "brevo_configuration#verify_connection", as: :brevo_verify_connection
+  post "brevo/verify_email", to: "brevo_configuration#verify_email", as: :brevo_verify_email
+  post "brevo/manual_sync", to: "brevo_configuration#manual_sync", as: :brevo_manual_sync
 
   namespace :admin do
     get "dashboard/index"

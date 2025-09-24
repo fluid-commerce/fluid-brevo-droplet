@@ -8,27 +8,34 @@ class Brevo::ConfigurationService
 
   def validate_api_key
     begin
-      account_info = @brevo_client.get_account
-      account_limits = @brevo_client.get_account_limits
+      Rails.logger.info "Making Brevo API call to get_lists endpoint"
+      # Use the lists endpoint to validate the API key - simpler and more reliable
+      lists_response = @brevo_client.get_lists
+      Rails.logger.info "Brevo API response received: #{lists_response.inspect}"
       
       {
         valid: true,
-        account: {
-          email: account_info['email'],
-          firstName: account_info['firstName'],
-          lastName: account_info['lastName'],
-          companyName: account_info['companyName']
-        },
-        limits: {
-          email: account_limits['email'],
-          sms: account_limits['sms']
-        }
+        message: "API key is valid and connection successful",
+        lists_count: lists_response['lists']&.length || 0
       }
     rescue BrevoApiError => e
+      Rails.logger.error "Brevo API Error: #{e.class.name}: #{e.message}"
+      Rails.logger.error "Status Code: #{e.status_code}"
+      Rails.logger.error "Backtrace: #{e.backtrace.first(5).join('\n')}"
+      
       {
         valid: false,
         error: e.message,
         status_code: e.status_code
+      }
+    rescue => e
+      Rails.logger.error "Unexpected Brevo Error: #{e.class.name}: #{e.message}"
+      Rails.logger.error "Backtrace: #{e.backtrace.first(5).join('\n')}"
+      
+      {
+        valid: false,
+        error: "Connection failed: #{e.message}",
+        status_code: 0
       }
     end
   end

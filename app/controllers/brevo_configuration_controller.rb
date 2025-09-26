@@ -47,18 +47,18 @@ class BrevoConfigurationController < ApplicationController
     
     Rails.logger.info "Brevo connection result: #{result.inspect}"
     
-    if result[:valid]
-      success_message = if result[:lists_count]
-        "Brevo connection verified successfully! Found #{result[:lists_count]} contact lists."
+      if result[:valid]
+        success_message = if result[:lists_count] && result[:lists_count] > 0
+          "Brevo connection verified successfully! Found #{result[:lists_count]} contact lists."
+        else
+          "Brevo connection verified successfully!"
+        end
+        
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, notice: success_message }
+          format.json { render json: { success: true, message: success_message } }
+        end
       else
-        "Brevo connection verified successfully!"
-      end
-      
-      respond_to do |format|
-        format.html { redirect_to brevo_configuration_path, notice: success_message }
-        format.json { render json: { success: true, message: success_message } }
-      end
-    else
       user_friendly_error = case result[:error]
       when /Invalid API key/i, /Unauthorized/i
         "Invalid API key. Please check your Brevo API key and try again."
@@ -117,6 +117,49 @@ class BrevoConfigurationController < ApplicationController
     respond_to do |format|
       format.html { redirect_to brevo_configuration_path, notice: 'Manual sync feature will be implemented soon!' }
       format.json { render json: { success: true, message: 'Manual sync feature will be implemented soon!' } }
+    end
+  end
+
+  def sync_lists
+    Rails.logger.info "Syncing Brevo lists for company #{@company.id}"
+    
+    if @company.integration_setting&.sync_brevo_lists!
+      lists = @company.integration_setting.available_lists
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, notice: "Successfully synced #{lists.length} lists from Brevo!" }
+        format.json { render json: { success: true, message: "Successfully synced #{lists.length} lists from Brevo!", lists: lists } }
+      end
+    else
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: 'Failed to sync lists. Please check your API key and try again.' }
+        format.json { render json: { success: false, error: 'Failed to sync lists. Please check your API key and try again.' }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def update_default_list
+    list_id = params[:default_list_id]
+    
+    if list_id.present?
+      @company.integration_setting.default_list_id = list_id.to_i
+      
+      if @company.integration_setting.save
+        list_name = @company.integration_setting.default_list_name
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, notice: "Default list updated to: #{list_name}" }
+          format.json { render json: { success: true, message: "Default list updated to: #{list_name}" } }
+        end
+      else
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, alert: 'Failed to update default list.' }
+          format.json { render json: { success: false, error: 'Failed to update default list.' }, status: :unprocessable_entity }
+        end
+      end
+    else
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: 'Please select a valid list.' }
+        format.json { render json: { success: false, error: 'Please select a valid list.' }, status: :unprocessable_entity }
+      end
     end
   end
 

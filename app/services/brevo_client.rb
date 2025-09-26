@@ -104,6 +104,11 @@ class BrevoClient
     make_request(:get, '/account/limits')
   end
 
+  # Senders API methods
+  def get_senders
+    make_request(:get, '/senders')
+  end
+
   # Lists API methods
   def create_list(list_params)
     make_request(:post, '/contacts/lists', body: list_params.to_json)

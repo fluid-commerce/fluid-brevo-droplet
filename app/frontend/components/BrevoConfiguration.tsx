@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, ExternalLink, Mail, Wifi, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle, XCircle } from 'lucide-react';
+import ConfigurationTab from './ConfigurationTab';
+import CustomerSyncTab from './CustomerSyncTab';
 
 interface BrevoConfigurationProps {
   company?: {
@@ -10,6 +12,15 @@ interface BrevoConfigurationProps {
         brevo?: {
           api_key?: string;
         };
+      };
+      settings?: {
+        lists?: Array<{
+          id: number;
+          name: string;
+          totalBlacklisted?: number;
+          totalSubscribers?: number;
+        }>;
+        default_list_id?: number;
       };
     };
     updated_at?: string;
@@ -36,6 +47,11 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [flashMessage, setFlashMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [lists, setLists] = useState(company?.integration_setting?.settings?.lists || []);
+  const [defaultListId, setDefaultListId] = useState(company?.integration_setting?.settings?.default_list_id || '');
+  const [activeTab, setActiveTab] = useState<'configuration' | 'customer-sync'>('configuration');
+  const [customerPreview, setCustomerPreview] = useState<any[]>([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
 
   useEffect(() => {
     if (flashMessages?.notice) {
@@ -87,7 +103,28 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   const handleVerifyConnection = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/brevo/verify_connection', {
+      // First save the current API key
+      const formData = new FormData();
+      formData.append('brevo_api_key', apiKey);
+      
+      const saveResponse = await fetch('/brevo', {
+        method: 'PATCH',
+        body: formData,
+        headers: {
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'Accept': 'application/json',
+        },
+      });
+
+      const saveData = await saveResponse.json();
+      
+      if (!saveResponse.ok || !saveData.success) {
+        setFlashMessage({ type: 'error', message: saveData.error || 'Failed to save API key before verification' });
+        return;
+      }
+
+      // Then verify the connection
+      const verifyResponse = await fetch('/brevo/verify_connection', {
         method: 'POST',
         headers: {
           'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
@@ -95,12 +132,12 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
         },
       });
 
-      const data = await response.json();
+      const verifyData = await verifyResponse.json();
       
-      if (response.ok && data.success) {
-        setFlashMessage({ type: 'success', message: data.message || 'Brevo connection verified successfully!' });
+      if (verifyResponse.ok && verifyData.success) {
+        setFlashMessage({ type: 'success', message: verifyData.message || 'Brevo connection verified successfully!' });
       } else {
-        setFlashMessage({ type: 'error', message: data.error || 'Connection verification failed' });
+        setFlashMessage({ type: 'error', message: verifyData.error || 'Connection verification failed' });
       }
     } catch (error) {
       setFlashMessage({ type: 'error', message: 'An error occurred while verifying connection' });
@@ -163,6 +200,86 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
     setShowPassword(!showPassword);
   };
 
+  const handleSyncLists = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/brevo/sync_lists', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'Accept': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setLists(data.lists || []);
+        setFlashMessage({ type: 'success', message: data.message || 'Lists synced successfully!' });
+      } else {
+        setFlashMessage({ type: 'error', message: data.error || 'Failed to sync lists' });
+      }
+    } catch (error) {
+      setFlashMessage({ type: 'error', message: 'An error occurred while syncing lists' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateDefaultList = async (listId: string) => {
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('default_list_id', listId);
+
+      const response = await fetch('/brevo/update_default_list', {
+        method: 'PATCH',
+        body: formData,
+        headers: {
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'Accept': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setDefaultListId(listId);
+        setFlashMessage({ type: 'success', message: data.message || 'Default list updated successfully!' });
+      } else {
+        setFlashMessage({ type: 'error', message: data.error || 'Failed to update default list' });
+      }
+    } catch (error) {
+      setFlashMessage({ type: 'error', message: 'An error occurred while updating default list' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePreviewCustomers = async () => {
+    setIsLoadingCustomers(true);
+    try {
+      // TODO: Implement actual customer preview API call
+      // For now, show mock data
+      const mockCustomers = [
+        { id: 1, name: 'John Doe', email: 'john@example.com', phone: '+1234567890', created_at: '2024-01-15' },
+        { id: 2, name: 'Jane Smith', email: 'jane@example.com', phone: '+1234567891', created_at: '2024-01-16' },
+        { id: 3, name: 'Bob Johnson', email: 'bob@example.com', phone: '+1234567892', created_at: '2024-01-17' },
+        { id: 4, name: 'Alice Brown', email: 'alice@example.com', phone: '+1234567893', created_at: '2024-01-18' },
+        { id: 5, name: 'Charlie Wilson', email: 'charlie@example.com', phone: '+1234567894', created_at: '2024-01-19' }
+      ];
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setCustomerPreview(mockCustomers);
+      setFlashMessage({ type: 'success', message: `Found ${mockCustomers.length} customers ready to sync` });
+    } catch (error) {
+      setFlashMessage({ type: 'error', message: 'An error occurred while loading customer preview' });
+    } finally {
+      setIsLoadingCustomers(false);
+    }
+  };
+
   const isConnected = apiKey.length > 0;
 
   return (
@@ -199,7 +316,7 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Brevo Integration</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                  Configure your Brevo API settings and test the connection
+                  Configure your Brevo API settings and sync customers
                 </p>
               </div>
               <div className="flex items-center">
@@ -217,182 +334,58 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
               </div>
             </div>
 
-            {/* Configuration Form */}
-            <form onSubmit={handleSave} className="space-y-6">
-              <div>
-                <label htmlFor="brevo_api_key" className="block text-sm font-medium text-gray-700">
-                  Brevo API Key
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    id="brevo_api_key"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Enter your Brevo API key"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={togglePasswordVisibility}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-                    )}
-                  </button>
-                </div>
-                <p className="mt-2 text-sm text-gray-500">
-                  You can find your API key in your{' '}
-                  <a
-                    href="https://app.brevo.com/settings/keys/api"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-500 inline-flex items-center"
-                  >
-                    Brevo account settings
-                    <ExternalLink className="w-3 h-3 ml-1" />
-                  </a>
-                </p>
-              </div>
-
-
-              <div className="flex justify-end">
+            {/* Tab Navigation */}
+            <div className="border-b border-gray-200 mb-6">
+              <nav className="-mb-px flex space-x-8">
                 <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  onClick={() => setActiveTab('configuration')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'configuration'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
                 >
-                  {isLoading ? 'Saving...' : 'Save Configuration'}
+                  Configuration
                 </button>
-              </div>
-            </form>
+                <button
+                  onClick={() => setActiveTab('customer-sync')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'customer-sync'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Customer Sync
+                </button>
+              </nav>
+            </div>
 
-            {/* Test & Verify Section */}
-            <div className="mt-8 border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Test & Verify</h3>
-                
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  {/* Verify Connection Button */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Test Connection</h4>
-                    <p className="text-xs text-gray-500 mb-3">
-                      Verify your API key and get account information
-                    </p>
-                    <button
-                      onClick={handleVerifyConnection}
-                      disabled={isLoading || !isConnected}
-                      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                    >
-                      <Wifi className="w-4 h-4 mr-1" />
-                      Verify Connection
-                    </button>
-                  </div>
-
-                  {/* Verify Email Button */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Test Email</h4>
-                    <p className="text-xs text-gray-500 mb-3">
-                      Send a test email to verify email functionality
-                    </p>
-                    <button
-                      onClick={handleVerifyEmail}
-                      disabled={isLoading || !isConnected}
-                      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                    >
-                      <Mail className="w-4 h-4 mr-1" />
-                      Send Test Email
-                    </button>
-                  </div>
-
-                  {/* Manual Sync Button */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Manual Sync</h4>
-                    <p className="text-xs text-gray-500 mb-3">
-                      Import contacts from Fluid to Brevo
-                    </p>
-                    <button
-                      onClick={handleManualSync}
-                      disabled={isLoading || !isConnected}
-                      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-1" />
-                      Sync Contacts
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-            {/* Account Information */}
-            {isConnected && company && (
-              <div className="mt-8 border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Account Information</h3>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Company</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{company.name}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Fluid Shop</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{company.fluid_shop}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Integration Status</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Active
-                        </span>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {company?.updated_at ? 
-                          new Date(company.updated_at).toLocaleString() : 
-                          'Never'
-                        }
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
+            {/* Tab Content */}
+            {activeTab === 'configuration' && (
+              <ConfigurationTab
+                apiKey={apiKey}
+                setApiKey={setApiKey}
+                showPassword={showPassword}
+                togglePasswordVisibility={togglePasswordVisibility}
+                isLoading={isLoading}
+                isConnected={isConnected}
+                lists={lists}
+                defaultListId={defaultListId}
+                handleSave={handleSave}
+                handleVerifyConnection={handleVerifyConnection}
+                handleSyncLists={handleSyncLists}
+                handleUpdateDefaultList={handleUpdateDefaultList}
+              />
             )}
 
-            {/* Help Section */}
-            <div className="mt-8 border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Need Help?</h3>
-              <div className="prose prose-sm text-gray-500 max-w-none">
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>
-                    Get your API key from the{' '}
-                    <a
-                      href="https://app.brevo.com/settings/keys/api"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-500"
-                    >
-                      Brevo API settings page
-                    </a>
-                  </li>
-                  <li>Make sure your sender email is verified in your Brevo account</li>
-                  <li>
-                    Check the{' '}
-                    <a
-                      href="https://developers.brevo.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-500"
-                    >
-                      Brevo API documentation
-                    </a>{' '}
-                    for more details
-                  </li>
-                </ul>
-              </div>
-            </div>
+            {activeTab === 'customer-sync' && (
+              <CustomerSyncTab
+                isConnected={isConnected}
+                isLoadingCustomers={isLoadingCustomers}
+                customerPreview={customerPreview}
+                handlePreviewCustomers={handlePreviewCustomers}
+              />
+            )}
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 import ConfigurationTab from './ConfigurationTab';
-import CustomerSyncTab from './CustomerSyncTab';
+import ListManagementTab from './ListManagementTab';
 
 interface BrevoConfigurationProps {
   company?: {
@@ -20,7 +20,11 @@ interface BrevoConfigurationProps {
           totalBlacklisted?: number;
           totalSubscribers?: number;
         }>;
-        default_list_id?: number;
+        segment_mappings?: {
+          everyone_list_id?: string;
+          customer_list_id?: string;
+          rep_list_id?: string;
+        };
       };
     };
     updated_at?: string;
@@ -48,10 +52,11 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   const [flashMessage, setFlashMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [lists, setLists] = useState(company?.integration_setting?.settings?.lists || []);
-  const [defaultListId, setDefaultListId] = useState(company?.integration_setting?.settings?.default_list_id || '');
-  const [activeTab, setActiveTab] = useState<'configuration' | 'customer-sync'>('configuration');
-  const [customerPreview, setCustomerPreview] = useState<any[]>([]);
-  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [segmentMappings, setSegmentMappings] = useState(company?.integration_setting?.settings?.segment_mappings || {});
+  const [activeTab, setActiveTab] = useState<'configuration' | 'list-management'>('configuration');
+  const [isSyncingSegment, setIsSyncingSegment] = useState<string | null>(null);
+  const [isPreviewingSegment, setIsPreviewingSegment] = useState<string | null>(null);
+  const [segmentPreview, setSegmentPreview] = useState<any[]>([]);
 
   useEffect(() => {
     if (flashMessages?.notice) {
@@ -226,15 +231,67 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
     }
   };
 
-  const handleUpdateDefaultList = async (listId: string) => {
-    setIsLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('default_list_id', listId);
 
-      const response = await fetch('/brevo/update_default_list', {
+
+  const handleUpdateSegmentMapping = async (segment: string, listId: string) => {
+    try {
+      const response = await fetch('/brevo/update_segment_mapping', {
         method: 'PATCH',
-        body: formData,
+        headers: {
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ segment, list_id: listId }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setSegmentMappings(prev => ({
+          ...prev,
+          [segment]: listId
+        }));
+        setFlashMessage({ type: 'success', message: data.message || 'Segment mapping updated successfully!' });
+      } else {
+        setFlashMessage({ type: 'error', message: data.error || 'Failed to update segment mapping' });
+      }
+    } catch (error) {
+      setFlashMessage({ type: 'error', message: 'An error occurred while updating segment mapping' });
+    }
+  };
+
+  const handleCreateList = async (segment: string, listName: string) => {
+    try {
+      const response = await fetch('/brevo/create_list', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ segment, list_name: listName }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setFlashMessage({ type: 'success', message: data.message || 'List created successfully!' });
+        // Refresh lists to include the new one
+        handleSyncLists();
+      } else {
+        setFlashMessage({ type: 'error', message: data.error || 'Failed to create list' });
+      }
+    } catch (error) {
+      setFlashMessage({ type: 'error', message: 'An error occurred while creating list' });
+    }
+  };
+
+  const handlePreviewSegment = async (segment: string) => {
+    setIsPreviewingSegment(segment);
+    try {
+      const response = await fetch(`/brevo/preview_segment?segment=${segment}`, {
+        method: 'GET',
         headers: {
           'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
           'Accept': 'application/json',
@@ -244,39 +301,44 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
       const data = await response.json();
       
       if (response.ok && data.success) {
-        setDefaultListId(listId);
-        setFlashMessage({ type: 'success', message: data.message || 'Default list updated successfully!' });
+        setSegmentPreview(data.customers || []);
+        setFlashMessage({ type: 'success', message: `Found ${data.count || 0} customers for ${segment.replace('_', ' ')}` });
       } else {
-        setFlashMessage({ type: 'error', message: data.error || 'Failed to update default list' });
+        setFlashMessage({ type: 'error', message: data.error || 'Failed to preview customers' });
       }
     } catch (error) {
-      setFlashMessage({ type: 'error', message: 'An error occurred while updating default list' });
+      setFlashMessage({ type: 'error', message: 'An error occurred while previewing customers' });
     } finally {
-      setIsLoading(false);
+      setIsPreviewingSegment(null);
     }
   };
 
-  const handlePreviewCustomers = async () => {
-    setIsLoadingCustomers(true);
+  const handleSyncSegment = async (segment: string) => {
+    setIsSyncingSegment(segment);
     try {
-      // TODO: Implement actual customer preview API call
-      // For now, show mock data
-      const mockCustomers = [
-        { id: 1, name: 'John Doe', email: 'john@example.com', phone: '+1234567890', created_at: '2024-01-15' },
-        { id: 2, name: 'Jane Smith', email: 'jane@example.com', phone: '+1234567891', created_at: '2024-01-16' },
-        { id: 3, name: 'Bob Johnson', email: 'bob@example.com', phone: '+1234567892', created_at: '2024-01-17' },
-        { id: 4, name: 'Alice Brown', email: 'alice@example.com', phone: '+1234567893', created_at: '2024-01-18' },
-        { id: 5, name: 'Charlie Wilson', email: 'charlie@example.com', phone: '+1234567894', created_at: '2024-01-19' }
-      ];
+      const response = await fetch('/brevo/sync_segment', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ segment }),
+      });
+
+      const data = await response.json();
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setCustomerPreview(mockCustomers);
-      setFlashMessage({ type: 'success', message: `Found ${mockCustomers.length} customers ready to sync` });
+      if (response.ok && data.success) {
+        setFlashMessage({ type: 'success', message: data.message || `Successfully synced ${segment.replace('_', ' ')} customers!` });
+        // Clear the preview after successful sync
+        setSegmentPreview([]);
+      } else {
+        setFlashMessage({ type: 'error', message: data.error || 'Failed to sync customers' });
+      }
     } catch (error) {
-      setFlashMessage({ type: 'error', message: 'An error occurred while loading customer preview' });
+      setFlashMessage({ type: 'error', message: 'An error occurred while syncing customers' });
     } finally {
-      setIsLoadingCustomers(false);
+      setIsSyncingSegment(null);
     }
   };
 
@@ -348,14 +410,14 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                   Configuration
                 </button>
                 <button
-                  onClick={() => setActiveTab('customer-sync')}
+                  onClick={() => setActiveTab('list-management')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'customer-sync'
+                    activeTab === 'list-management'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  Customer Sync
+                  Contact List Management
                 </button>
               </nav>
             </div>
@@ -369,21 +431,24 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                 togglePasswordVisibility={togglePasswordVisibility}
                 isLoading={isLoading}
                 isConnected={isConnected}
-                lists={lists}
-                defaultListId={defaultListId}
                 handleSave={handleSave}
                 handleVerifyConnection={handleVerifyConnection}
-                handleSyncLists={handleSyncLists}
-                handleUpdateDefaultList={handleUpdateDefaultList}
               />
             )}
 
-            {activeTab === 'customer-sync' && (
-              <CustomerSyncTab
+            {activeTab === 'list-management' && (
+              <ListManagementTab
                 isConnected={isConnected}
-                isLoadingCustomers={isLoadingCustomers}
-                customerPreview={customerPreview}
-                handlePreviewCustomers={handlePreviewCustomers}
+                lists={lists}
+                segmentMappings={segmentMappings}
+                handleSyncLists={handleSyncLists}
+                handleUpdateSegmentMapping={handleUpdateSegmentMapping}
+                handleCreateList={handleCreateList}
+                handleSyncSegment={handleSyncSegment}
+                handlePreviewSegment={handlePreviewSegment}
+                isSyncingSegment={isSyncingSegment}
+                isPreviewingSegment={isPreviewingSegment}
+                segmentPreview={segmentPreview}
               />
             )}
           </div>

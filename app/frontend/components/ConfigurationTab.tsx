@@ -8,17 +8,8 @@ interface ConfigurationTabProps {
   togglePasswordVisibility: () => void;
   isLoading: boolean;
   isConnected: boolean;
-  lists: Array<{
-    id: number;
-    name: string;
-    totalBlacklisted?: number;
-    totalSubscribers?: number;
-  }>;
-  defaultListId: string | number;
   handleSave: (e: React.FormEvent) => void;
   handleVerifyConnection: () => void;
-  handleSyncLists: () => void;
-  handleUpdateDefaultList: (listId: string) => void;
 }
 
 const ConfigurationTab: React.FC<ConfigurationTabProps> = ({
@@ -28,12 +19,8 @@ const ConfigurationTab: React.FC<ConfigurationTabProps> = ({
   togglePasswordVisibility,
   isLoading,
   isConnected,
-  lists,
-  defaultListId,
   handleSave,
-  handleVerifyConnection,
-  handleSyncLists,
-  handleUpdateDefaultList
+  handleVerifyConnection
 }) => {
   return (
     <div className="space-y-6">
@@ -93,71 +80,6 @@ const ConfigurationTab: React.FC<ConfigurationTabProps> = ({
           </div>
         )}
 
-        {/* Lists Configuration Section */}
-        {isConnected && (
-          <div className="mt-8 border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">List Management</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="default_list" className="block text-sm font-medium text-gray-700 mb-2">
-                  Default Contact List
-                </label>
-                <div className="flex gap-3">
-                  <select
-                    id="default_list"
-                    value={defaultListId}
-                    onChange={(e) => handleUpdateDefaultList(e.target.value)}
-                    disabled={isLoading || lists.length === 0}
-                    className="flex-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md disabled:opacity-50"
-                  >
-                    <option value="">
-                      {lists.length === 0 ? 'No lists available - sync first' : 'Select a default list'}
-                    </option>
-                    {lists.map((list) => (
-                      <option key={list.id} value={list.id}>
-                        {list.name} ({list.totalSubscribers || 0} subscribers)
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleSyncLists}
-                    disabled={isLoading}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                    Sync Lists
-                  </button>
-                </div>
-                <p className="mt-2 text-sm text-gray-500">
-                  Choose the default list where new contacts will be added. Use "Sync Lists" to refresh the list from Brevo.
-                </p>
-              </div>
-
-              {lists.length > 0 && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Available Lists ({lists.length})</h4>
-                  <div className="space-y-2">
-                    {lists.map((list) => (
-                      <div key={list.id} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-900">{list.name}</span>
-                        <div className="flex items-center space-x-4 text-gray-500">
-                          <span>{list.totalSubscribers || 0} subscribers</span>
-                          {defaultListId === list.id.toString() && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Default
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         <div className="flex justify-end">
           <button

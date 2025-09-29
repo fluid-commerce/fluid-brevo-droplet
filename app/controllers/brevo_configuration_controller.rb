@@ -47,7 +47,7 @@ class BrevoConfigurationController < ApplicationController
     
     Rails.logger.info "Brevo connection result: #{result.inspect}"
     
-      if result[:valid]
+    if result[:valid]
         success_message = if result[:lists_count] && result[:lists_count] > 0
           "Brevo connection verified successfully! Found #{result[:lists_count]} contact lists."
         else
@@ -159,6 +159,207 @@ class BrevoConfigurationController < ApplicationController
       respond_to do |format|
         format.html { redirect_to brevo_configuration_path, alert: 'Please select a valid list.' }
         format.json { render json: { success: false, error: 'Please select a valid list.' }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def preview_customers
+    limit = params[:limit]&.to_i || 10
+    offset = params[:offset]&.to_i || 0
+    
+    begin
+      import_service = Brevo::CustomerImportService.new(@company)
+      customers = import_service.preview_customers(limit: limit, offset: offset)
+      
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, notice: "Found #{customers.length} customers" }
+        format.json { render json: { success: true, customers: customers, count: customers.length } }
+      end
+    rescue => e
+      Rails.logger.error "Error previewing customers: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to preview customers: #{e.message}" }
+        format.json { render json: { success: false, error: "Failed to preview customers: #{e.message}" }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def import_customers
+    limit = params[:limit]&.to_i || 50
+    offset = params[:offset]&.to_i || 0
+    
+    begin
+      import_service = Brevo::CustomerImportService.new(@company)
+      result = import_service.import_customers(limit: limit, offset: offset)
+      
+      if result[:success]
+        message = "Successfully imported #{result[:imported_count]} customers to Brevo"
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, notice: message }
+          format.json { render json: { success: true, message: message, result: result } }
+        end
+      else
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, alert: result[:error] }
+          format.json { render json: { success: false, error: result[:error] }, status: :unprocessable_entity }
+        end
+      end
+    rescue => e
+      Rails.logger.error "Error importing customers: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to import customers: #{e.message}" }
+        format.json { render json: { success: false, error: "Failed to import customers: #{e.message}" }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def update_segment_mapping
+    segment = params[:segment]
+    list_id = params[:list_id]
+    
+    unless %w[everyone_list_id customer_list_id rep_list_id].include?(segment)
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: 'Invalid segment type.' }
+        format.json { render json: { success: false, error: 'Invalid segment type.' }, status: :unprocessable_entity }
+      end
+      return
+    end
+    
+    begin
+      @company.integration_setting.send("#{segment}=", list_id)
+      
+      if @company.integration_setting.save
+        list_name = @company.integration_setting.get_list_name(list_id) if list_id.present?
+        message = list_name ? "Updated #{segment.humanize} to: #{list_name}" : "Cleared #{segment.humanize}"
+        
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, notice: message }
+          format.json { render json: { success: true, message: message } }
+        end
+      else
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, alert: 'Failed to update segment mapping.' }
+          format.json { render json: { success: false, error: 'Failed to update segment mapping.' }, status: :unprocessable_entity }
+        end
+      end
+    rescue => e
+      Rails.logger.error "Error updating segment mapping: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to update segment mapping: #{e.message}" }
+        format.json { render json: { success: false, error: "Failed to update segment mapping: #{e.message}" }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def create_list
+    list_name = params[:list_name]
+    segment = params[:segment]
+    
+    unless list_name.present? && %w[everyone_list_id customer_list_id rep_list_id].include?(segment)
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: 'List name and segment are required.' }
+        format.json { render json: { success: false, error: 'List name and segment are required.' }, status: :unprocessable_entity }
+      end
+      return
+    end
+    
+    begin
+      brevo_client = BrevoClient.new(@company.integration_setting.credentials.dig('brevo', 'api_key'))
+      list_response = brevo_client.create_list({ name: list_name })
+      
+      if list_response && list_response['id']
+        # Update the segment mapping with the new list
+        @company.integration_setting.send("#{segment}=", list_response['id'].to_s)
+        
+        if @company.integration_setting.save
+          # Refresh the lists to include the new one
+          @company.integration_setting.sync_brevo_lists!
+          
+          respond_to do |format|
+            format.html { redirect_to brevo_configuration_path, notice: "Created list '#{list_name}' and updated #{segment.humanize}" }
+            format.json { render json: { success: true, message: "Created list '#{list_name}'", list: list_response } }
+          end
+        else
+          respond_to do |format|
+            format.html { redirect_to brevo_configuration_path, alert: 'List created but failed to update segment mapping.' }
+            format.json { render json: { success: false, error: 'List created but failed to update segment mapping.' }, status: :unprocessable_entity }
+          end
+        end
+      else
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, alert: 'Failed to create list in Brevo.' }
+          format.json { render json: { success: false, error: 'Failed to create list in Brevo.' }, status: :unprocessable_entity }
+        end
+      end
+    rescue => e
+      Rails.logger.error "Error creating list: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to create list: #{e.message}" }
+        format.json { render json: { success: false, error: "Failed to create list: #{e.message}" }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def preview_segment
+    segment = params[:segment]
+    
+    unless %w[everyone_list_id customer_list_id rep_list_id].include?(segment)
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: 'Invalid segment type.' }
+        format.json { render json: { success: false, error: 'Invalid segment type.' }, status: :unprocessable_entity }
+      end
+      return
+    end
+    
+    begin
+      import_service = Brevo::CustomerImportService.new(@company)
+      customers = import_service.preview_customers_for_segment(segment)
+      
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, notice: "Found #{customers.length} customers for #{segment.humanize}" }
+        format.json { render json: { success: true, customers: customers, count: customers.length } }
+      end
+    rescue => e
+      Rails.logger.error "Error previewing segment #{segment}: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to preview customers: #{e.message}" }
+        format.json { render json: { success: false, error: "Failed to preview customers: #{e.message}" }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def sync_segment
+    segment = params[:segment]
+    
+    unless %w[everyone_list_id customer_list_id rep_list_id].include?(segment)
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: 'Invalid segment type.' }
+        format.json { render json: { success: false, error: 'Invalid segment type.' }, status: :unprocessable_entity }
+      end
+      return
+    end
+    
+    begin
+      import_service = Brevo::CustomerImportService.new(@company)
+      result = import_service.import_customers_for_segment(segment)
+      
+      if result[:success]
+        message = "Successfully synced #{result[:imported_count]} customers to #{segment.humanize}"
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, notice: message }
+          format.json { render json: { success: true, message: message, result: result } }
+        end
+      else
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, alert: result[:error] }
+          format.json { render json: { success: false, error: result[:error] }, status: :unprocessable_entity }
+        end
+      end
+    rescue => e
+      Rails.logger.error "Error syncing segment #{segment}: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to sync customers: #{e.message}" }
+        format.json { render json: { success: false, error: "Failed to sync customers: #{e.message}" }, status: :unprocessable_entity }
       end
     end
   end

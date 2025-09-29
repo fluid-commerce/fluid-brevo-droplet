@@ -76,4 +76,51 @@ class IntegrationSetting < ApplicationRecord
       false
     end
   end
+
+  # Segment mapping methods
+  def segment_mappings
+    settings&.dig('segment_mappings') || {}
+  end
+
+  def segment_mappings=(mappings)
+    self.settings ||= {}
+    self.settings['segment_mappings'] = mappings
+  end
+
+  def everyone_list_id
+    segment_mappings['everyone_list_id']
+  end
+
+  def everyone_list_id=(list_id)
+    mappings = segment_mappings.dup
+    mappings['everyone_list_id'] = list_id
+    self.segment_mappings = mappings
+  end
+
+  def customer_list_id
+    segment_mappings['customer_list_id']
+  end
+
+  def customer_list_id=(list_id)
+    mappings = segment_mappings.dup
+    mappings['customer_list_id'] = list_id
+    self.segment_mappings = mappings
+  end
+
+  def rep_list_id
+    segment_mappings['rep_list_id']
+  end
+
+  def rep_list_id=(list_id)
+    mappings = segment_mappings.dup
+    mappings['rep_list_id'] = list_id
+    self.segment_mappings = mappings
+  end
+
+  def get_list_name(list_id)
+    return nil unless list_id.present?
+    
+    list = brevo_lists.find { |l| l['id'] == list_id.to_i }
+    list&.dig('name')
+  end
 end

@@ -21,7 +21,10 @@ console.log('API key path:', company?.integration_setting?.credentials?.brevo?.a
 const root = createRoot(document.getElementById('root') as HTMLElement);
 root.render(
   <BrevoConfiguration
-    company={company}
+    company={company?.company}
+    lists={company?.lists}
+    segment_mappings={company?.segment_mappings}
+    folder_info={company?.folder_info}
     flashMessages={flashMessages}
     error={error}
   />

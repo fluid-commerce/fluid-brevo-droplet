@@ -7,6 +7,28 @@ class BrevoConfigurationController < ApplicationController
   before_action :ensure_credentials_exist, only: [:verify_connection, :verify_email, :manual_sync]
 
   def show
+    # Get folder info if available
+    folder_info = nil
+    if @company.integration_setting&.brevo_folder_id.present?
+      begin
+        brevo_client = BrevoClient.new(@company.integration_setting.credentials.dig('brevo', 'api_key'))
+        folder_info = brevo_client.get_folder(@company.integration_setting.brevo_folder_id)
+      rescue => e
+        Rails.logger.warn "Failed to get folder info: #{e.message}"
+      end
+    end
+
+    @company_data = {
+      company: @company.as_json(include: :integration_setting),
+      lists: @company.integration_setting&.brevo_lists || [],
+      segment_mappings: @company.integration_setting&.segment_mappings || {},
+      folder_info: folder_info
+    }
+
+    respond_to do |format|
+      format.html
+      format.json { render json: @company_data }
+    end
   end
 
   def update
@@ -264,8 +286,15 @@ class BrevoConfigurationController < ApplicationController
     end
     
     begin
+      # Get or create the FluidBrevoDropletContacts folder
+      folder_id = @company.integration_setting.get_or_create_brevo_folder!
+      
       brevo_client = BrevoClient.new(@company.integration_setting.credentials.dig('brevo', 'api_key'))
-      list_response = brevo_client.create_list({ name: list_name })
+      
+      list_response = brevo_client.create_list({ 
+        name: list_name, 
+        folderId: folder_id 
+      })
       
       if list_response && list_response['id']
         # Update the segment mapping with the new list
@@ -364,7 +393,35 @@ class BrevoConfigurationController < ApplicationController
     end
   end
 
+  def get_folder_info
+    begin
+      folder_id = @company.integration_setting.brevo_folder_id
+      
+      if folder_id.present?
+        brevo_client = BrevoClient.new(@company.integration_setting.credentials.dig('brevo', 'api_key'))
+        folder_info = brevo_client.get_folder(folder_id)
+        
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, notice: "Folder: #{folder_info['name']}" }
+          format.json { render json: { success: true, folder: folder_info } }
+        end
+      else
+        respond_to do |format|
+          format.html { redirect_to brevo_configuration_path, alert: 'No folder configured' }
+          format.json { render json: { success: false, error: 'No folder configured' }, status: :unprocessable_entity }
+        end
+      end
+    rescue => e
+      Rails.logger.error "Error getting folder info: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to get folder info: #{e.message}" }
+        format.json { render json: { success: false, error: "Failed to get folder info: #{e.message}" }, status: :unprocessable_entity }
+      end
+    end
+  end
+
   private
+
 
   def authenticate_dri
     droplet_installation_uuid = params[:dri] || session[:droplet_installation_uuid]

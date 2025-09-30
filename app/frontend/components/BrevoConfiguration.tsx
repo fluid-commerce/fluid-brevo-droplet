@@ -29,6 +29,21 @@ interface BrevoConfigurationProps {
     };
     updated_at?: string;
   };
+  lists?: Array<{
+    id: number;
+    name: string;
+    totalBlacklisted?: number;
+    totalSubscribers?: number;
+  }>;
+  segment_mappings?: {
+    everyone_list_id?: string;
+    customer_list_id?: string;
+    rep_list_id?: string;
+  };
+  folder_info?: {
+    id: number;
+    name: string;
+  };
   flashMessages?: {
     notice?: string;
     alert?: string;
@@ -44,6 +59,9 @@ interface ApiResponse {
 
 const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   company,
+  lists: initialLists,
+  segment_mappings: initialSegmentMappings,
+  folder_info,
   flashMessages,
   error
 }) => {
@@ -51,8 +69,8 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [flashMessage, setFlashMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [lists, setLists] = useState(company?.integration_setting?.settings?.lists || []);
-  const [segmentMappings, setSegmentMappings] = useState(company?.integration_setting?.settings?.segment_mappings || {});
+  const [lists, setLists] = useState(initialLists || []);
+  const [segmentMappings, setSegmentMappings] = useState(initialSegmentMappings || {});
   const [activeTab, setActiveTab] = useState<'configuration' | 'list-management'>('configuration');
   const [isSyncingSegment, setIsSyncingSegment] = useState<string | null>(null);
   const [isPreviewingSegment, setIsPreviewingSegment] = useState<string | null>(null);
@@ -345,8 +363,8 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   const isConnected = apiKey.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
         {/* Flash Messages */}
         {flashMessage && (
           <div className={`rounded-md p-4 mb-6 ${
@@ -371,25 +389,25 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
           </div>
         )}
 
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
+        <div className="bg-white shadow-lg rounded-xl">
+          <div className="px-6 py-8">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-8">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Brevo Integration</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                  Configure your Brevo API settings and sync customers
+                <h1 className="text-3xl font-bold text-gray-900">Brevo Integration</h1>
+                <p className="mt-2 text-lg text-gray-600">
+                  Configure your Brevo API settings and manage customer lists
                 </p>
               </div>
               <div className="flex items-center">
                 {isConnected ? (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    <CheckCircle className="w-2 h-2 mr-1" />
+                  <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    <CheckCircle className="w-4 h-4 mr-2" />
                     Connected
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                    <XCircle className="w-2 h-2 mr-1" />
+                  <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                    <XCircle className="w-4 h-4 mr-2" />
                     Not Connected
                   </span>
                 )}
@@ -397,11 +415,11 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
             </div>
 
             {/* Tab Navigation */}
-            <div className="border-b border-gray-200 mb-6">
-              <nav className="-mb-px flex space-x-8">
+            <div className="border-b border-gray-200 mb-8">
+              <nav className="-mb-px flex space-x-12">
                 <button
                   onClick={() => setActiveTab('configuration')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-4 px-2 border-b-2 font-semibold text-base transition-colors duration-200 ${
                     activeTab === 'configuration'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -411,7 +429,7 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveTab('list-management')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-4 px-2 border-b-2 font-semibold text-base transition-colors duration-200 ${
                     activeTab === 'list-management'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -436,21 +454,22 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
               />
             )}
 
-            {activeTab === 'list-management' && (
-              <ListManagementTab
-                isConnected={isConnected}
-                lists={lists}
-                segmentMappings={segmentMappings}
-                handleSyncLists={handleSyncLists}
-                handleUpdateSegmentMapping={handleUpdateSegmentMapping}
-                handleCreateList={handleCreateList}
-                handleSyncSegment={handleSyncSegment}
-                handlePreviewSegment={handlePreviewSegment}
-                isSyncingSegment={isSyncingSegment}
-                isPreviewingSegment={isPreviewingSegment}
-                segmentPreview={segmentPreview}
-              />
-            )}
+        {activeTab === 'list-management' && (
+          <ListManagementTab
+            isConnected={isConnected}
+            lists={lists}
+            segmentMappings={segmentMappings}
+            folderInfo={folder_info}
+            handleSyncLists={handleSyncLists}
+            handleUpdateSegmentMapping={handleUpdateSegmentMapping}
+            handleCreateList={handleCreateList}
+            handleSyncSegment={handleSyncSegment}
+            handlePreviewSegment={handlePreviewSegment}
+            isSyncingSegment={isSyncingSegment}
+            isPreviewingSegment={isPreviewingSegment}
+            segmentPreview={segmentPreview}
+          />
+        )}
           </div>
         </div>
       </div>

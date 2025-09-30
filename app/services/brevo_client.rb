@@ -131,6 +131,27 @@ class BrevoClient
     make_request(:delete, "/contacts/lists/#{list_id}")
   end
 
+  # Folders API methods
+  def get_folders
+    make_request(:get, '/contacts/folders')
+  end
+
+  def create_folder(folder_params)
+    make_request(:post, '/contacts/folders', body: folder_params.to_json)
+  end
+
+  def get_folder(folder_id)
+    make_request(:get, "/contacts/folders/#{folder_id}")
+  end
+
+  def update_folder(folder_id, folder_params)
+    make_request(:put, "/contacts/folders/#{folder_id}", body: folder_params.to_json)
+  end
+
+  def delete_folder(folder_id)
+    make_request(:delete, "/contacts/folders/#{folder_id}")
+  end
+
   # Attributes API methods
   def create_attribute(attribute_params)
     make_request(:post, '/contacts/attributes', body: attribute_params.to_json)

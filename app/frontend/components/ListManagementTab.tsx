@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { RefreshCw, Plus, Users, UserCheck, UserX } from 'lucide-react';
+import Modal from './Modal';
 
 interface ListManagementTabProps {
   isConnected: boolean;
@@ -13,6 +14,10 @@ interface ListManagementTabProps {
     everyone_list_id?: string;
     customer_list_id?: string;
     rep_list_id?: string;
+  };
+  folderInfo?: {
+    id: number;
+    name: string;
   };
   handleSyncLists: () => void;
   handleUpdateSegmentMapping: (segment: string, listId: string) => void;
@@ -34,6 +39,7 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
   isConnected,
   lists,
   segmentMappings: initialSegmentMappings,
+  folderInfo,
   handleSyncLists,
   handleUpdateSegmentMapping,
   handleCreateList,
@@ -49,8 +55,9 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
     repListId: initialSegmentMappings.rep_list_id || ''
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [selectedSegment, setSelectedSegment] = useState<keyof SegmentMapping | null>(null);
 
   const handleListChange = (segment: keyof SegmentMapping, listId: string) => {
     setSegmentMappings(prev => ({
@@ -63,23 +70,36 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
     handleUpdateSegmentMapping(segmentKey, listId);
   };
 
-  const handleCreateListSubmit = async (segment: keyof SegmentMapping) => {
-    if (!newListName.trim()) return;
+  const handleCreateListClick = (segment: keyof SegmentMapping) => {
+    setSelectedSegment(segment);
+    setNewListName('');
+    setShowCreateModal(true);
+  };
+
+  const handleCreateListSubmit = async () => {
+    if (!newListName.trim() || !selectedSegment) return;
     
     setIsLoading(true);
     try {
       // Convert segment key to the format expected by the backend
-      const segmentKey = segment.replace('ListId', '_list_id');
+      const segmentKey = selectedSegment.replace('ListId', '_list_id');
       await handleCreateList(segmentKey, newListName);
       
-      // Close the form
-      setShowCreateForm(null);
+      // Close the modal
+      setShowCreateModal(false);
       setNewListName('');
+      setSelectedSegment(null);
     } catch (error) {
       console.error('Error creating list:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setNewListName('');
+    setSelectedSegment(null);
   };
 
   const segments = [
@@ -139,47 +159,64 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">Contact List Management</h3>
-          <p className="text-sm text-gray-500">
+          <h3 className="text-2xl font-bold text-gray-900">Contact List Management</h3>
+          <p className="mt-2 text-lg text-gray-600">
             Map your customer segments to Brevo contact lists
           </p>
         </div>
         <button
           onClick={handleSyncLists}
           disabled={isLoading}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          className="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-5 h-5 mr-3 ${isLoading ? 'animate-spin' : ''}`} />
           Sync Lists
         </button>
       </div>
 
+      {/* Folder Information */}
+      {folderInfo && (
+        <div className="mb-8 p-6 bg-blue-50 border-2 border-blue-200 rounded-xl">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Users className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-blue-900">Brevo Folder</h3>
+              <p className="text-blue-700">
+                All lists will be created in: <span className="font-semibold">{folderInfo.name}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Segments */}
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {segments.map((segment) => {
           const IconComponent = segment.icon;
           const selectedList = lists.find(list => list.id.toString() === segmentMappings[segment.key]);
           
           return (
-            <div key={segment.key} className={`border rounded-lg p-6 ${getColorClasses(segment.color)}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3">
+            <div key={segment.key} className={`border-2 rounded-xl p-8 ${getColorClasses(segment.color)}`}>
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-start space-x-4">
                   <div className={`flex-shrink-0 ${getIconColorClasses(segment.color)}`}>
-                    <IconComponent className="h-6 w-6" />
+                    <IconComponent className="h-8 w-8" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-lg font-medium">{segment.title}</h4>
-                    <p className="text-sm opacity-75 mt-1">{segment.description}</p>
+                    <h4 className="text-xl font-bold">{segment.title}</h4>
+                    <p className="text-base opacity-75 mt-2">{segment.description}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4">
-                <label htmlFor={segment.key} className="block text-sm font-medium mb-2">
+              <div className="space-y-4">
+                <label htmlFor={segment.key} className="block text-base font-semibold">
                   Select List
                 </label>
                 <div className="flex gap-3">
@@ -187,7 +224,7 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
                     id={segment.key}
                     value={segmentMappings[segment.key]}
                     onChange={(e) => handleListChange(segment.key, e.target.value)}
-                    className="flex-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="flex-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full text-base border-gray-300 rounded-lg py-3 px-4"
                   >
                     <option value="">
                       {lists.length === 0 ? 'No lists available - sync first' : 'Select a list'}
@@ -200,40 +237,40 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
                   </select>
                   <button
                     type="button"
-                    onClick={() => setShowCreateForm(segment.key)}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    onClick={() => handleCreateListClick(segment.key)}
+                    className="inline-flex items-center px-4 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="w-5 h-5 mr-2" />
                     Create New
                   </button>
                 </div>
 
                 {selectedList && (
-                  <div className="mt-3 p-3 bg-white bg-opacity-50 rounded-md">
-                    <div className="flex items-center justify-between text-sm mb-3">
-                      <span className="font-medium">{selectedList.name}</span>
-                      <div className="flex items-center space-x-4 text-gray-500">
-                        <span>{selectedList.totalSubscribers || 0} subscribers</span>
-                        <span>{selectedList.totalBlacklisted || 0} blacklisted</span>
+                  <div className="mt-6 p-6 bg-white bg-opacity-60 rounded-lg border border-white border-opacity-50">
+                    <div className="flex items-center justify-between text-base mb-4">
+                      <span className="font-bold text-lg">{selectedList.name}</span>
+                      <div className="flex items-center space-x-6 text-gray-600">
+                        <span className="text-sm">{selectedList.totalSubscribers || 0} subscribers</span>
+                        <span className="text-sm">{selectedList.totalBlacklisted || 0} blacklisted</span>
                       </div>
                     </div>
                     
                     {/* Sync and Preview buttons */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <button
                         onClick={() => handlePreviewSegment(segment.key.replace('ListId', '_list_id'))}
                         disabled={isPreviewingSegment === segment.key.replace('ListId', '_list_id')}
-                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
                       >
-                        <RefreshCw className={`w-3 h-3 mr-1 ${isPreviewingSegment === segment.key.replace('ListId', '_list_id') ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-4 h-4 mr-2 ${isPreviewingSegment === segment.key.replace('ListId', '_list_id') ? 'animate-spin' : ''}`} />
                         {isPreviewingSegment === segment.key.replace('ListId', '_list_id') ? 'Loading...' : 'Preview'}
                       </button>
                       <button
                         onClick={() => handleSyncSegment(segment.key.replace('ListId', '_list_id'))}
                         disabled={isSyncingSegment === segment.key.replace('ListId', '_list_id')}
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
                       >
-                        <RefreshCw className={`w-3 h-3 mr-1 ${isSyncingSegment === segment.key.replace('ListId', '_list_id') ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-4 h-4 mr-2 ${isSyncingSegment === segment.key.replace('ListId', '_list_id') ? 'animate-spin' : ''}`} />
                         {isSyncingSegment === segment.key.replace('ListId', '_list_id') ? 'Syncing...' : 'Sync Now'}
                       </button>
                     </div>
@@ -241,36 +278,6 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
                 )}
               </div>
 
-              {/* Create List Form */}
-              {showCreateForm === segment.key && (
-                <div className="mt-4 p-4 bg-white bg-opacity-50 rounded-md">
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      value={newListName}
-                      onChange={(e) => setNewListName(e.target.value)}
-                      placeholder={`Enter name for ${segment.title.toLowerCase()}`}
-                      className="flex-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                    />
-                    <button
-                      onClick={() => handleCreateListSubmit(segment.key)}
-                      disabled={isLoading || !newListName.trim()}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                    >
-                      {isLoading ? 'Creating...' : 'Create'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowCreateForm(null);
-                        setNewListName('');
-                      }}
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}
@@ -278,30 +285,30 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
 
       {/* Customer Preview */}
       {segmentPreview.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-blue-900 mb-3">Customer Preview ({segmentPreview.length} customers)</h4>
-          <div className="max-h-64 overflow-y-auto">
-            <div className="space-y-2">
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+          <h4 className="text-lg font-bold text-blue-900 mb-4">Customer Preview ({segmentPreview.length} customers)</h4>
+          <div className="max-h-80 overflow-y-auto">
+            <div className="space-y-3">
               {segmentPreview.slice(0, 10).map((customer, index) => (
-                <div key={index} className="flex items-center justify-between text-sm bg-white p-2 rounded">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium text-blue-600">
+                <div key={index} className="flex items-center justify-between text-base bg-white p-4 rounded-lg shadow-sm">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-base font-bold text-blue-600">
                         {customer.name?.charAt(0) || '?'}
                       </span>
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">{customer.name || 'Unknown'}</div>
-                      <div className="text-gray-500">{customer.email}</div>
+                      <div className="font-semibold text-gray-900 text-lg">{customer.name || 'Unknown'}</div>
+                      <div className="text-gray-600">{customer.email}</div>
                     </div>
                   </div>
-                  <div className="text-gray-500 text-xs">
+                  <div className="text-gray-500 text-sm">
                     {customer.phone && `📞 ${customer.phone}`}
                   </div>
                 </div>
               ))}
               {segmentPreview.length > 10 && (
-                <div className="text-center text-sm text-gray-500 py-2">
+                <div className="text-center text-base text-gray-500 py-4 bg-white rounded-lg">
                   ... and {segmentPreview.length - 10} more customers
                 </div>
               )}
@@ -311,22 +318,63 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
       )}
 
       {/* Summary */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h4 className="text-sm font-medium text-gray-900 mb-2">Configuration Summary</h4>
-        <div className="space-y-1 text-sm text-gray-600">
+      <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+        <h4 className="text-lg font-bold text-gray-900 mb-4">Configuration Summary</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {segments.map((segment) => {
             const selectedList = lists.find(list => list.id.toString() === segmentMappings[segment.key]);
             return (
-              <div key={segment.key} className="flex justify-between">
-                <span>{segment.title}:</span>
-                <span className="font-medium">
+              <div key={segment.key} className="bg-white p-4 rounded-lg border border-gray-200">
+                <div className="text-sm font-medium text-gray-500 mb-1">{segment.title}</div>
+                <div className="text-base font-semibold text-gray-900">
                   {selectedList ? selectedList.name : 'Not configured'}
-                </span>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Create List Modal */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={handleCloseModal}
+        title={`Create New List for ${selectedSegment ? segments.find(s => s.key === selectedSegment)?.title : ''}`}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="list-name" className="block text-sm font-medium text-gray-700 mb-2">
+              List Name
+            </label>
+            <input
+              id="list-name"
+              type="text"
+              value={newListName}
+              onChange={(e) => setNewListName(e.target.value)}
+              placeholder={`Enter name for ${selectedSegment ? segments.find(s => s.key === selectedSegment)?.title.toLowerCase() : ''}`}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-base"
+              autoFocus
+            />
+          </div>
+          
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              onClick={handleCloseModal}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateListSubmit}
+              disabled={isLoading || !newListName.trim()}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              {isLoading ? 'Creating...' : 'Create List'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

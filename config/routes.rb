@@ -18,6 +18,7 @@ Rails.application.routes.draw do
   post "brevo/create_list", to: "brevo_configuration#create_list", as: :brevo_create_list
   get "brevo/preview_segment", to: "brevo_configuration#preview_segment", as: :brevo_preview_segment
   post "brevo/sync_segment", to: "brevo_configuration#sync_segment", as: :brevo_sync_segment
+  get "brevo/folder_info", to: "brevo_configuration#get_folder_info", as: :brevo_folder_info
 
   namespace :admin do
     get "dashboard/index"

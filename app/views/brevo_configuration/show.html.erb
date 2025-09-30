@@ -4,7 +4,7 @@
 
 <!-- Data for React component -->
 <script type="application/json" id="company-data">
-  <%= raw (@company&.as_json(include: :integration_setting) || {}).to_json %>
+  <%= raw (@company_data || {}).to_json %>
 </script>
 
 <!-- Debug information -->

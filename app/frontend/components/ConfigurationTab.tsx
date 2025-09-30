@@ -23,44 +23,44 @@ const ConfigurationTab: React.FC<ConfigurationTabProps> = ({
   handleVerifyConnection
 }) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Configuration Form */}
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSave} className="space-y-8">
         <div>
-          <label htmlFor="brevo_api_key" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="brevo_api_key" className="block text-lg font-semibold text-gray-900 mb-3">
             Brevo API Key
           </label>
-          <div className="mt-1 relative">
+          <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
               id="brevo_api_key"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="Enter your Brevo API key"
-              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md pr-10"
+              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full text-lg border-gray-300 rounded-lg py-4 px-4 pr-12"
             />
             <button
               type="button"
               onClick={togglePasswordVisibility}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              className="absolute inset-y-0 right-0 pr-4 flex items-center"
             >
               {showPassword ? (
-                <EyeOff className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
               ) : (
-                <Eye className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
               )}
             </button>
           </div>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-3 text-base text-gray-600">
             You can find your API key in your{' '}
             <a
               href="https://app.brevo.com/settings/keys/api"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-500 inline-flex items-center"
+              className="text-blue-600 hover:text-blue-500 inline-flex items-center font-medium"
             >
               Brevo account settings
-              <ExternalLink className="w-3 h-3 ml-1" />
+              <ExternalLink className="w-4 h-4 ml-1" />
             </a>
           </p>
         </div>

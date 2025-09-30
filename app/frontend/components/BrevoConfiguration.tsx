@@ -73,8 +73,12 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   const [segmentMappings, setSegmentMappings] = useState(initialSegmentMappings || {});
   const [activeTab, setActiveTab] = useState<'configuration' | 'list-management'>('configuration');
   const [isSyncingSegment, setIsSyncingSegment] = useState<string | null>(null);
-  const [isPreviewingSegment, setIsPreviewingSegment] = useState<string | null>(null);
-  const [segmentPreview, setSegmentPreview] = useState<any[]>([]);
+  const [importProgress, setImportProgress] = useState<{
+    jobId: string | null;
+    percentage: number;
+    message: string;
+    status: 'running' | 'completed' | 'failed';
+  } | null>(null);
 
   useEffect(() => {
     if (flashMessages?.notice) {
@@ -305,31 +309,6 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
     }
   };
 
-  const handlePreviewSegment = async (segment: string) => {
-    setIsPreviewingSegment(segment);
-    try {
-      const response = await fetch(`/brevo/preview_segment?segment=${segment}`, {
-        method: 'GET',
-        headers: {
-          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-          'Accept': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        setSegmentPreview(data.customers || []);
-        setFlashMessage({ type: 'success', message: `Found ${data.count || 0} customers for ${segment.replace('_', ' ')}` });
-      } else {
-        setFlashMessage({ type: 'error', message: data.error || 'Failed to preview customers' });
-      }
-    } catch (error) {
-      setFlashMessage({ type: 'error', message: 'An error occurred while previewing customers' });
-    } finally {
-      setIsPreviewingSegment(null);
-    }
-  };
 
   const handleSyncSegment = async (segment: string) => {
     setIsSyncingSegment(segment);
@@ -347,17 +326,79 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
       const data = await response.json();
       
       if (response.ok && data.success) {
-        setFlashMessage({ type: 'success', message: data.message || `Successfully synced ${segment.replace('_', ' ')} customers!` });
-        // Clear the preview after successful sync
+        // Start polling for progress
+        if (data.job_id) {
+          setImportProgress({
+            jobId: data.job_id,
+            percentage: 0,
+            message: 'Starting import...',
+            status: 'running'
+          });
+          startProgressPolling(data.job_id);
+        } else {
+          setFlashMessage({ type: 'success', message: data.message || `Successfully synced ${segment.replace('_', ' ')} customers!` });
+        }
+        // Clear the preview after starting sync
         setSegmentPreview([]);
       } else {
         setFlashMessage({ type: 'error', message: data.error || 'Failed to sync customers' });
+        setIsSyncingSegment(null);
       }
     } catch (error) {
       setFlashMessage({ type: 'error', message: 'An error occurred while syncing customers' });
-    } finally {
       setIsSyncingSegment(null);
     }
+  };
+
+  const startProgressPolling = (jobId: string) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/brevo/import_progress?job_id=${jobId}`, {
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          const progress = data.progress;
+          setImportProgress({
+            jobId: jobId,
+            percentage: progress.percentage,
+            message: progress.message,
+            status: progress.status
+          });
+
+          if (progress.status === 'completed' || progress.status === 'failed') {
+            clearInterval(pollInterval);
+            setIsSyncingSegment(null);
+            
+            if (progress.status === 'completed') {
+              setFlashMessage({ type: 'success', message: progress.message });
+            } else {
+              setFlashMessage({ type: 'error', message: progress.message });
+            }
+            
+            // Clear progress after 5 seconds
+            setTimeout(() => {
+              setImportProgress(null);
+            }, 5000);
+          }
+        } else {
+          // Job not found or error
+          clearInterval(pollInterval);
+          setIsSyncingSegment(null);
+          setFlashMessage({ type: 'error', message: 'Failed to track import progress' });
+          setImportProgress(null);
+        }
+      } catch (error) {
+        console.error('Error polling progress:', error);
+        clearInterval(pollInterval);
+        setIsSyncingSegment(null);
+        setImportProgress(null);
+      }
+    }, 2000); // Poll every 2 seconds
   };
 
   const isConnected = apiKey.length > 0;
@@ -384,6 +425,40 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                 }`}>
                   {flashMessage.message}
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Import Progress */}
+        {importProgress && (
+          <div className="rounded-md p-4 mb-6 bg-blue-50 border border-blue-200">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <div className="ml-3 flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-blue-800">
+                    {importProgress.message}
+                  </p>
+                  <span className="text-sm text-blue-600 font-medium">
+                    {importProgress.percentage}%
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <div className="w-full bg-blue-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${importProgress.percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+                {importProgress.jobId && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Job ID: {importProgress.jobId}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -464,10 +539,7 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
             handleUpdateSegmentMapping={handleUpdateSegmentMapping}
             handleCreateList={handleCreateList}
             handleSyncSegment={handleSyncSegment}
-            handlePreviewSegment={handlePreviewSegment}
             isSyncingSegment={isSyncingSegment}
-            isPreviewingSegment={isPreviewingSegment}
-            segmentPreview={segmentPreview}
           />
         )}
           </div>

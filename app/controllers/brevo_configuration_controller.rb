@@ -185,55 +185,6 @@ class BrevoConfigurationController < ApplicationController
     end
   end
 
-  def preview_customers
-    limit = params[:limit]&.to_i || 10
-    offset = params[:offset]&.to_i || 0
-    
-    begin
-      import_service = Brevo::CustomerImportService.new(@company)
-      customers = import_service.preview_customers(limit: limit, offset: offset)
-      
-      respond_to do |format|
-        format.html { redirect_to brevo_configuration_path, notice: "Found #{customers.length} customers" }
-        format.json { render json: { success: true, customers: customers, count: customers.length } }
-      end
-    rescue => e
-      Rails.logger.error "Error previewing customers: #{e.message}"
-      respond_to do |format|
-        format.html { redirect_to brevo_configuration_path, alert: "Failed to preview customers: #{e.message}" }
-        format.json { render json: { success: false, error: "Failed to preview customers: #{e.message}" }, status: :unprocessable_entity }
-      end
-    end
-  end
-
-  def import_customers
-    limit = params[:limit]&.to_i || 50
-    offset = params[:offset]&.to_i || 0
-    
-    begin
-      import_service = Brevo::CustomerImportService.new(@company)
-      result = import_service.import_customers(limit: limit, offset: offset)
-      
-      if result[:success]
-        message = "Successfully imported #{result[:imported_count]} customers to Brevo"
-        respond_to do |format|
-          format.html { redirect_to brevo_configuration_path, notice: message }
-          format.json { render json: { success: true, message: message, result: result } }
-        end
-      else
-        respond_to do |format|
-          format.html { redirect_to brevo_configuration_path, alert: result[:error] }
-          format.json { render json: { success: false, error: result[:error] }, status: :unprocessable_entity }
-        end
-      end
-    rescue => e
-      Rails.logger.error "Error importing customers: #{e.message}"
-      respond_to do |format|
-        format.html { redirect_to brevo_configuration_path, alert: "Failed to import customers: #{e.message}" }
-        format.json { render json: { success: false, error: "Failed to import customers: #{e.message}" }, status: :unprocessable_entity }
-      end
-    end
-  end
 
   def update_segment_mapping
     segment = params[:segment]
@@ -329,33 +280,6 @@ class BrevoConfigurationController < ApplicationController
     end
   end
 
-  def preview_segment
-    segment = params[:segment]
-    
-    unless %w[everyone_list_id customer_list_id rep_list_id].include?(segment)
-      respond_to do |format|
-        format.html { redirect_to brevo_configuration_path, alert: 'Invalid segment type.' }
-        format.json { render json: { success: false, error: 'Invalid segment type.' }, status: :unprocessable_entity }
-      end
-      return
-    end
-    
-    begin
-      import_service = Brevo::CustomerImportService.new(@company)
-      customers = import_service.preview_customers_for_segment(segment)
-      
-      respond_to do |format|
-        format.html { redirect_to brevo_configuration_path, notice: "Found #{customers.length} customers for #{segment.humanize}" }
-        format.json { render json: { success: true, customers: customers, count: customers.length } }
-      end
-    rescue => e
-      Rails.logger.error "Error previewing segment #{segment}: #{e.message}"
-      respond_to do |format|
-        format.html { redirect_to brevo_configuration_path, alert: "Failed to preview customers: #{e.message}" }
-        format.json { render json: { success: false, error: "Failed to preview customers: #{e.message}" }, status: :unprocessable_entity }
-      end
-    end
-  end
 
   def sync_segment
     segment = params[:segment]
@@ -369,26 +293,59 @@ class BrevoConfigurationController < ApplicationController
     end
     
     begin
-      import_service = Brevo::CustomerImportService.new(@company)
-      result = import_service.import_customers_for_segment(segment)
-      
-      if result[:success]
-        message = "Successfully synced #{result[:imported_count]} customers to #{segment.humanize}"
+      # Get the list ID for this segment
+      list_id = @company.integration_setting.send(segment)
+      unless list_id.present?
         respond_to do |format|
-          format.html { redirect_to brevo_configuration_path, notice: message }
-          format.json { render json: { success: true, message: message, result: result } }
+          format.html { redirect_to brevo_configuration_path, alert: "No list configured for #{segment.humanize}. Please select a list first." }
+          format.json { render json: { success: false, error: "No list configured for #{segment.humanize}. Please select a list first." }, status: :unprocessable_entity }
+        end
+        return
+      end
+      
+      # Start background job
+      job = CustomerImportJob.perform_later(@company.id, segment, list_id)
+      job_id = job.job_id
+      
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, notice: "Customer import started. Job ID: #{job_id}" }
+        format.json { render json: { success: true, message: "Customer import started", job_id: job_id } }
+      end
+    rescue => e
+      Rails.logger.error "Error starting sync for segment #{segment}: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to start customer sync: #{e.message}" }
+        format.json { render json: { success: false, error: "Failed to start customer sync: #{e.message}" }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def import_progress
+    job_id = params[:job_id]
+    
+    unless job_id.present?
+      respond_to do |format|
+        format.json { render json: { success: false, error: 'Job ID is required' }, status: :unprocessable_entity }
+      end
+      return
+    end
+    
+    begin
+      progress_data = Rails.cache.read("import_progress_#{job_id}")
+      
+      if progress_data
+        respond_to do |format|
+          format.json { render json: { success: true, progress: progress_data } }
         end
       else
         respond_to do |format|
-          format.html { redirect_to brevo_configuration_path, alert: result[:error] }
-          format.json { render json: { success: false, error: result[:error] }, status: :unprocessable_entity }
+          format.json { render json: { success: false, error: 'Job not found or expired' }, status: :not_found }
         end
       end
     rescue => e
-      Rails.logger.error "Error syncing segment #{segment}: #{e.message}"
+      Rails.logger.error "Error getting import progress: #{e.message}"
       respond_to do |format|
-        format.html { redirect_to brevo_configuration_path, alert: "Failed to sync customers: #{e.message}" }
-        format.json { render json: { success: false, error: "Failed to sync customers: #{e.message}" }, status: :unprocessable_entity }
+        format.json { render json: { success: false, error: "Failed to get progress: #{e.message}" }, status: :unprocessable_entity }
       end
     end
   end

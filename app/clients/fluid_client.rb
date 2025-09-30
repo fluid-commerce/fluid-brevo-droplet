@@ -50,12 +50,23 @@ private
   def handle_response(response)
     case response.code
     when 200..299
-      response.parsed_response
+      # Check if response is actually JSON
+      if response.headers['content-type']&.include?('application/json')
+        response.parsed_response
+      else
+        # Response is not JSON, log the actual content
+        Rails.logger.error "Non-JSON response received:"
+        Rails.logger.error "Content-Type: #{response.headers['content-type']}"
+        Rails.logger.error "Response body: #{response.body&.first(1000)}"
+        raise APIError, "Expected JSON response but received #{response.headers['content-type']}"
+      end
     when 401
       raise AuthenticationError, response
     when 404
       raise ResourceNotFoundError, response
     else
+      Rails.logger.error "API Error #{response.code}:"
+      Rails.logger.error "Response body: #{response.body&.first(1000)}"
       raise APIError, response
     end
   end

@@ -23,10 +23,7 @@ interface ListManagementTabProps {
   handleUpdateSegmentMapping: (segment: string, listId: string) => void;
   handleCreateList: (segment: string, listName: string) => void;
   handleSyncSegment: (segment: string) => void;
-  handlePreviewSegment: (segment: string) => void;
   isSyncingSegment?: string | null;
-  isPreviewingSegment?: string | null;
-  segmentPreview?: any[];
 }
 
 interface SegmentMapping {
@@ -44,10 +41,7 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
   handleUpdateSegmentMapping,
   handleCreateList,
   handleSyncSegment,
-  handlePreviewSegment,
-  isSyncingSegment,
-  isPreviewingSegment,
-  segmentPreview = []
+  isSyncingSegment
 }) => {
   const [segmentMappings, setSegmentMappings] = useState<SegmentMapping>({
     everyoneListId: initialSegmentMappings.everyone_list_id || '',
@@ -255,16 +249,8 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
                       </div>
                     </div>
                     
-                    {/* Sync and Preview buttons */}
+                    {/* Sync button */}
                     <div className="flex gap-3">
-                      <button
-                        onClick={() => handlePreviewSegment(segment.key.replace('ListId', '_list_id'))}
-                        disabled={isPreviewingSegment === segment.key.replace('ListId', '_list_id')}
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
-                      >
-                        <RefreshCw className={`w-4 h-4 mr-2 ${isPreviewingSegment === segment.key.replace('ListId', '_list_id') ? 'animate-spin' : ''}`} />
-                        {isPreviewingSegment === segment.key.replace('ListId', '_list_id') ? 'Loading...' : 'Preview'}
-                      </button>
                       <button
                         onClick={() => handleSyncSegment(segment.key.replace('ListId', '_list_id'))}
                         disabled={isSyncingSegment === segment.key.replace('ListId', '_list_id')}
@@ -283,39 +269,6 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
         })}
       </div>
 
-      {/* Customer Preview */}
-      {segmentPreview.length > 0 && (
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
-          <h4 className="text-lg font-bold text-blue-900 mb-4">Customer Preview ({segmentPreview.length} customers)</h4>
-          <div className="max-h-80 overflow-y-auto">
-            <div className="space-y-3">
-              {segmentPreview.slice(0, 10).map((customer, index) => (
-                <div key={index} className="flex items-center justify-between text-base bg-white p-4 rounded-lg shadow-sm">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-base font-bold text-blue-600">
-                        {customer.name?.charAt(0) || '?'}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900 text-lg">{customer.name || 'Unknown'}</div>
-                      <div className="text-gray-600">{customer.email}</div>
-                    </div>
-                  </div>
-                  <div className="text-gray-500 text-sm">
-                    {customer.phone && `📞 ${customer.phone}`}
-                  </div>
-                </div>
-              ))}
-              {segmentPreview.length > 10 && (
-                <div className="text-center text-base text-gray-500 py-4 bg-white rounded-lg">
-                  ... and {segmentPreview.length - 10} more customers
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Summary */}
       <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">

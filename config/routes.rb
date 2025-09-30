@@ -16,8 +16,8 @@ Rails.application.routes.draw do
   patch "brevo/update_default_list", to: "brevo_configuration#update_default_list", as: :brevo_update_default_list
   patch "brevo/update_segment_mapping", to: "brevo_configuration#update_segment_mapping", as: :brevo_update_segment_mapping
   post "brevo/create_list", to: "brevo_configuration#create_list", as: :brevo_create_list
-  get "brevo/preview_segment", to: "brevo_configuration#preview_segment", as: :brevo_preview_segment
   post "brevo/sync_segment", to: "brevo_configuration#sync_segment", as: :brevo_sync_segment
+  get "brevo/import_progress", to: "brevo_configuration#import_progress", as: :brevo_import_progress
   get "brevo/folder_info", to: "brevo_configuration#get_folder_info", as: :brevo_folder_info
 
   namespace :admin do

@@ -10,7 +10,7 @@ interface BrevoConfigurationProps {
     integration_setting?: {
       credentials?: {
         brevo?: {
-          api_key?: string;
+        api_key?: string;
         };
       };
       settings?: {
@@ -69,12 +69,11 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   const [segmentMappings, setSegmentMappings] = useState(initialSegmentMappings || {});
   const [activeTab, setActiveTab] = useState<'configuration' | 'list-management'>('configuration');
   const [isSyncingSegment, setIsSyncingSegment] = useState<string | null>(null);
-  const [importProgress, setImportProgress] = useState<{
-    jobId: string | null;
-    percentage: number;
-    message: string;
-    status: 'running' | 'completed' | 'failed';
-  } | null>(null);
+    const [importProgress, setImportProgress] = useState<{
+      percentage: number;
+      message: string;
+      status: 'running' | 'completed' | 'failed';
+    } | null>(null);
 
   useEffect(() => {
     if (flashMessages?.notice) {
@@ -325,9 +324,8 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
         // Start polling for progress
         if (data.job_id) {
           setImportProgress({
-            jobId: data.job_id,
             percentage: 0,
-            message: 'Starting import...',
+            message: 'Importing contacts...',
             status: 'running'
           });
           startProgressPolling(data.job_id);
@@ -358,7 +356,6 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
         if (response.ok && data.success) {
           const progress = data.progress;
           setImportProgress({
-            jobId: jobId,
             percentage: progress.percentage,
             message: progress.message,
             status: progress.status
@@ -384,7 +381,6 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
           clearInterval(pollInterval);
           setIsSyncingSegment(null);
           setImportProgress({
-            jobId: jobId,
             percentage: 100,
             message: 'Import completed',
             status: 'completed'
@@ -458,11 +454,6 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                     ></div>
                   </div>
                 </div>
-                {importProgress.jobId && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    Job ID: {importProgress.jobId}
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -506,7 +497,7 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                 >
                   Configuration
                 </button>
-                <button
+                    <button
                   onClick={() => setActiveTab('list-management')}
                   className={`py-4 px-2 border-b-2 font-semibold text-base transition-colors duration-200 ${
                     activeTab === 'list-management'
@@ -515,9 +506,9 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                   }`}
                 >
                   Contact List Management
-                </button>
+                    </button>
               </nav>
-            </div>
+                  </div>
 
             {/* Tab Content */}
             {activeTab === 'configuration' && (

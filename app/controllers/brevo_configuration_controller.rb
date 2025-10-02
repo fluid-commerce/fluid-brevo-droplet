@@ -304,8 +304,8 @@ class BrevoConfigurationController < ApplicationController
       end
       
       # Start background job
-      job = CustomerImportJob.perform_later(@company.id, segment, list_id)
-      job_id = job.job_id
+      job_id = SecureRandom.uuid
+      job = CustomerImportJob.perform_later(@company.id, segment, list_id, job_id)
       
       respond_to do |format|
         format.html { redirect_to brevo_configuration_path, notice: "Customer import started." }
@@ -332,20 +332,34 @@ class BrevoConfigurationController < ApplicationController
     
     begin
       progress_data = Rails.cache.read("import_progress_#{job_id}")
+      final_result = Rails.cache.read("import_result_#{job_id}")
       
-      if progress_data
-        respond_to do |format|
-          format.json { render json: { success: true, progress: progress_data } }
-        end
-      else
-        # Job completed or expired - return a completed status instead of 404
+      if final_result
+        # Job completed - use final result with actual count (prioritize this)
         respond_to do |format|
           format.json { render json: { 
             success: true, 
             progress: { 
               percentage: 100, 
-              message: 'Job completed', 
+              message: final_result[:message], 
               status: 'completed' 
+            } 
+          } }
+        end
+      elsif progress_data
+        respond_to do |format|
+          format.json { render json: { success: true, progress: progress_data } }
+        end
+      else
+        # No progress data or final result found - job might be starting or still running
+        # Return in_progress status to keep frontend polling until job completes
+        respond_to do |format|
+          format.json { render json: { 
+            success: true, 
+            progress: { 
+              percentage: 0, 
+              message: 'Importing contacts...', 
+              status: 'in_progress' 
             } 
           } }
         end

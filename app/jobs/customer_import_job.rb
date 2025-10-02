@@ -53,7 +53,17 @@ class CustomerImportJob < ApplicationJob
         sleep(0.3)
       end
       
-      update_progress(100, "Successfully imported #{total_imported} customers")
+      # Store final result for controller to access
+      final_message = "Successfully imported #{total_imported} customers"
+      final_result_data = {
+        message: final_message,
+        total_imported: total_imported
+      }
+      
+      Rails.cache.write("import_result_#{@job_id}", final_result_data, expires_in: 1.hour)
+      
+      # Update progress with final message
+      update_progress(100, final_message)
       
     rescue => e
       Rails.logger.error "Customer import job #{@job_id} failed: #{e.message}"

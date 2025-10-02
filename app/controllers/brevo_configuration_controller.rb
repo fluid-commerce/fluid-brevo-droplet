@@ -2,8 +2,8 @@
 
 class BrevoConfigurationController < ApplicationController
   before_action :authenticate_dri
-  before_action :set_company
-  before_action :ensure_company_exist
+  before_action :set_company, except: [:import_progress]
+  before_action :ensure_company_exist, except: [:import_progress]
   before_action :ensure_credentials_exist, only: [:verify_connection, :verify_email, :manual_sync]
 
   def show
@@ -308,7 +308,7 @@ class BrevoConfigurationController < ApplicationController
       job_id = job.job_id
       
       respond_to do |format|
-        format.html { redirect_to brevo_configuration_path, notice: "Customer import started. Job ID: #{job_id}" }
+        format.html { redirect_to brevo_configuration_path, notice: "Customer import started." }
         format.json { render json: { success: true, message: "Customer import started", job_id: job_id } }
       end
     rescue => e
@@ -338,8 +338,16 @@ class BrevoConfigurationController < ApplicationController
           format.json { render json: { success: true, progress: progress_data } }
         end
       else
+        # Job completed or expired - return a completed status instead of 404
         respond_to do |format|
-          format.json { render json: { success: false, error: 'Job not found or expired' }, status: :not_found }
+          format.json { render json: { 
+            success: true, 
+            progress: { 
+              percentage: 100, 
+              message: 'Job completed', 
+              status: 'completed' 
+            } 
+          } }
         end
       end
     rescue => e

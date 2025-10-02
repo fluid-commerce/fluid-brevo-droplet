@@ -80,7 +80,7 @@ class CustomerImportJob < ApplicationJob
     begin
       # For segment-specific counts, we need to fetch customers and filter them
       # since the API doesn't support is_rep parameter
-      Rails.logger.info "Fetching customer count for segment: #{@segment_type}"
+      Rails.logger.info "Fetching customer count for segment: #{@segment}"
       
       # Fetch a reasonable number of customers to count
       params = { page: 1, per_page: 1000 } # Get up to 1000 customers to count
@@ -96,7 +96,7 @@ class CustomerImportJob < ApplicationJob
       filtered_customers = filter_customers_by_segment(all_customers)
       
       total_count = filtered_customers.length
-      Rails.logger.info "Total customers to import for segment #{@segment_type}: #{total_count} (filtered from #{all_customers.length} total)"
+      Rails.logger.info "Total customers to import for segment #{@segment}: #{total_count} (filtered from #{all_customers.length} total)"
       total_count
     rescue => e
       Rails.logger.error "Failed to get customer count from stats: #{e.message}"
@@ -121,7 +121,7 @@ class CustomerImportJob < ApplicationJob
         filtered_customers = filter_customers_by_segment(all_customers)
         
         total_count = filtered_customers.length
-        Rails.logger.info "Fallback - Total customers to import for segment #{@segment_type}: #{total_count} (filtered from #{all_customers.length} total)"
+        Rails.logger.info "Fallback - Total customers to import for segment #{@segment}: #{total_count} (filtered from #{all_customers.length} total)"
         total_count
       rescue => e2
         Rails.logger.error "Fallback also failed: #{e2.message}"
@@ -137,7 +137,7 @@ class CustomerImportJob < ApplicationJob
 
   def fetch_customers_page(page, per_page)
     begin
-      Rails.logger.info "Fetching customers page #{page} with per_page=#{per_page} for segment: #{@segment_type}"
+      Rails.logger.info "Fetching customers page #{page} with per_page=#{per_page} for segment: #{@segment}"
       
       # Fetch customers without API filtering (is_rep parameter doesn't exist)
       params = {
@@ -181,8 +181,8 @@ class CustomerImportJob < ApplicationJob
     
     customers.each_slice(batch_size) do |customer_batch|
       # Transform and import this batch immediately
-      brevo_contacts = transform_customers_to_brevo_format(customer_batch)
-      import_result = import_to_brevo(brevo_contacts, list_id)
+      contact_data = transform_customers_to_brevo_format(customer_batch)
+      import_result = import_to_brevo(contact_data, list_id)
       
       total_imported += customer_batch.length
       
@@ -194,7 +194,7 @@ class CustomerImportJob < ApplicationJob
   end
 
   def filter_customers_by_segment(customers)
-    case @segment_type
+    case @segment
     when 'customer_list_id'
       # Non-rep customers only
       customers.select { |customer| customer['is_rep'] == false }
@@ -213,11 +213,8 @@ class CustomerImportJob < ApplicationJob
   def transform_customers_to_brevo_format(customers)
     Rails.logger.info "Transforming #{customers.length} customers for Brevo"
     
-    # Create CSV format as expected by Brevo
-    csv_data = []
-    
-    # Add header row
-    csv_data << "EMAIL,LASTNAME,FIRSTNAME,SMS,WHATSAPP"
+    # Create contact data for CSV generation
+    contact_data = []
     
     customers.each do |customer|
       # Log customer data for debugging
@@ -230,35 +227,42 @@ class CustomerImportJob < ApplicationJob
         next # Skip this customer
       end
       
-      # Format phone number for Brevo (must start with + or be numeric)
+      # Format phone number for Brevo (keep + and add single quote prefix)
       phone = customer['phone']
       formatted_phone = if phone.present?
         # Remove any non-numeric characters except +
         cleaned = phone.gsub(/[^\d+]/, '')
         # If it doesn't start with +, add it
-        cleaned.start_with?('+') ? cleaned : "+#{cleaned}"
+        cleaned = cleaned.start_with?('+') ? cleaned : "+#{cleaned}"
+        # Add single quote at the beginning to preserve the + sign in Brevo
+        cleaned.length >= 8 ? "'#{cleaned}" : ''
       else
         ''
       end
       
-      # Add customer row to CSV
-      csv_data << [
-        email,
-        customer['last_name'] || '',
-        customer['first_name'] || '',
-        formatted_phone,
-        formatted_phone
-      ].join(',')
+      # Debug phone formatting
+      Rails.logger.info "Phone formatting: original='#{phone}', formatted='#{formatted_phone}'"
+      
+      # Create contact data for CSV
+      contact_data << {
+        email: email,
+        firstname: customer['first_name'] || '',
+        lastname: customer['last_name'] || '',
+        sms: formatted_phone
+      }
     end
     
-    csv_string = csv_data.join("\n")
-    Rails.logger.info "Generated CSV data: #{csv_string}"
-    csv_string
+    Rails.logger.info "Generated contact data: #{contact_data.length} contacts"
+    Rails.logger.info "Sample contact: #{contact_data.first.inspect}" if contact_data.any?
+    contact_data
   end
 
-  def import_to_brevo(contacts_csv, list_id)
+  def import_to_brevo(contact_data, list_id)
     Rails.logger.info "Importing contacts to Brevo list #{list_id}"
-    Rails.logger.info "CSV data length: #{contacts_csv.length} characters"
+    Rails.logger.info "Contact data count: #{contact_data.length}"
+    
+    # Generate CSV content for Brevo
+    csv_content = generate_csv_from_contacts(contact_data)
     
     import_data = {
       listIds: [list_id.to_i].compact,
@@ -268,12 +272,39 @@ class CustomerImportJob < ApplicationJob
       smsBlacklist: false,
       updateExistingContacts: true,
       emptyContactsAttributes: false,
-      fileBody: contacts_csv,
-      fileUrl: nil
+      fileBody: csv_content
     }
 
-    Rails.logger.info "Brevo import data: #{import_data.inspect}"
+    Rails.logger.info "Brevo import data with CSV: #{import_data.inspect[0..500]}"
+    Rails.logger.info "Request body being sent to Brevo:"
+    Rails.logger.info "listIds: #{import_data[:listIds]}"
+    Rails.logger.info "fileBody content:"
+    Rails.logger.info csv_content
+    Rails.logger.info "fileBody length: #{csv_content.length} characters"
+    
     brevo_client.import_contacts(import_data)
+  end
+
+  private
+
+  def generate_csv_from_contacts(contact_data)
+    # Create CSV header based on Brevo's expected format
+    header = "EMAIL;FIRSTNAME;LASTNAME;SMS"
+    
+    # Generate CSV rows
+    csv_rows = contact_data.map do |contact|
+      email = contact[:email]
+      firstname = contact[:firstname] || ''
+      lastname = contact[:lastname] || ''
+      sms = contact[:sms] || ''
+      
+      "#{email};#{firstname};#{lastname};#{sms}"
+    end
+    
+    csv_content = ([header] + csv_rows).join("\n")
+    
+    Rails.logger.info "Generated CSV content (first 500 chars): #{csv_content[0..500]}"
+    csv_content
   end
 
   def fluid_client

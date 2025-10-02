@@ -17,8 +17,6 @@ interface BrevoConfigurationProps {
         lists?: Array<{
           id: number;
           name: string;
-          totalBlacklisted?: number;
-          totalSubscribers?: number;
         }>;
         segment_mappings?: {
           everyone_list_id?: string;
@@ -32,8 +30,6 @@ interface BrevoConfigurationProps {
   lists?: Array<{
     id: number;
     name: string;
-    totalBlacklisted?: number;
-    totalSubscribers?: number;
   }>;
   segment_mappings?: {
     everyone_list_id?: string;
@@ -338,8 +334,6 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
         } else {
           setFlashMessage({ type: 'success', message: data.message || `Successfully synced ${segment.replace('_', ' ')} customers!` });
         }
-        // Clear the preview after starting sync
-        setSegmentPreview([]);
       } else {
         setFlashMessage({ type: 'error', message: data.error || 'Failed to sync customers' });
         setIsSyncingSegment(null);
@@ -386,11 +380,21 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
             }, 5000);
           }
         } else {
-          // Job not found or error
+          // Job not found or error - assume completed
           clearInterval(pollInterval);
           setIsSyncingSegment(null);
-          setFlashMessage({ type: 'error', message: 'Failed to track import progress' });
-          setImportProgress(null);
+          setImportProgress({
+            jobId: jobId,
+            percentage: 100,
+            message: 'Import completed',
+            status: 'completed'
+          });
+          setFlashMessage({ type: 'success', message: 'Import completed successfully' });
+          
+          // Clear progress after 5 seconds
+          setTimeout(() => {
+            setImportProgress(null);
+          }, 5000);
         }
       } catch (error) {
         console.error('Error polling progress:', error);

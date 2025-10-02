@@ -7,8 +7,6 @@ interface ListManagementTabProps {
   lists: Array<{
     id: number;
     name: string;
-    totalBlacklisted?: number;
-    totalSubscribers?: number;
   }>;
   segmentMappings: {
     everyone_list_id?: string;
@@ -225,7 +223,7 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
                     </option>
                     {lists.map((list) => (
                       <option key={list.id} value={list.id}>
-                        {list.name} ({list.totalSubscribers || 0} subscribers)
+                        {list.name}
                       </option>
                     ))}
                   </select>
@@ -243,10 +241,6 @@ const ListManagementTab: React.FC<ListManagementTabProps> = ({
                   <div className="mt-6 p-6 bg-white bg-opacity-60 rounded-lg border border-white border-opacity-50">
                     <div className="flex items-center justify-between text-base mb-4">
                       <span className="font-bold text-lg">{selectedList.name}</span>
-                      <div className="flex items-center space-x-6 text-gray-600">
-                        <span className="text-sm">{selectedList.totalSubscribers || 0} subscribers</span>
-                        <span className="text-sm">{selectedList.totalBlacklisted || 0} blacklisted</span>
-                      </div>
                     </div>
                     
                     {/* Sync button */}

@@ -40,6 +40,11 @@ class BrevoClient
   end
 
   def import_contacts(import_params)
+    Rails.logger.info "Import params: #{import_params.inspect}"
+    Rails.logger.info "fileBody content: #{import_params[:fileBody]}"
+    
+    # Keep consistent with other methods - send as JSON
+    # The fileBody will be properly JSON-encoded as a string
     make_request(:post, '/contacts/import', body: import_params.to_json)
   end
 
@@ -206,6 +211,11 @@ class BrevoClient
   def make_request(method, endpoint, options = {})
     Rails.logger.info "BrevoClient making #{method.upcase} request to: #{endpoint}"
     Rails.logger.info "Request headers: #{default_headers.inspect}"
+    
+    if options[:body]
+      Rails.logger.info "Request body (first 1000 chars): #{options[:body][0..1000]}"
+      Rails.logger.info "Request body length: #{options[:body].length} characters"
+    end
     
     response = self.class.send(
       method,

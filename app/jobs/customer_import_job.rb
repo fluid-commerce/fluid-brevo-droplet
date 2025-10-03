@@ -276,12 +276,7 @@ class CustomerImportJob < ApplicationJob
     
     import_data = {
       listIds: [list_id.to_i].compact,
-      notifyUrl: nil,
-      newList: nil,
-      emailBlacklist: false,
-      smsBlacklist: false,
       updateExistingContacts: true,
-      emptyContactsAttributes: false,
       fileBody: csv_content
     }
 

@@ -19,6 +19,7 @@ Rails.application.routes.draw do
   post "brevo/sync_segment", to: "brevo_configuration#sync_segment", as: :brevo_sync_segment
   get "brevo/import_progress", to: "brevo_configuration#import_progress", as: :brevo_import_progress
   get "brevo/folder_info", to: "brevo_configuration#get_folder_info", as: :brevo_folder_info
+  post "brevo/import_products", to: "brevo_configuration#import_products", as: :brevo_import_products
 
   namespace :admin do
     get "dashboard/index"

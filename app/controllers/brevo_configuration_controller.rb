@@ -4,7 +4,7 @@ class BrevoConfigurationController < ApplicationController
   before_action :authenticate_dri
   before_action :set_company, except: [:import_progress]
   before_action :ensure_company_exist, except: [:import_progress]
-  before_action :ensure_credentials_exist, only: [:verify_connection, :verify_email, :manual_sync]
+  before_action :ensure_credentials_exist, only: [:verify_connection, :verify_email, :manual_sync, :import_products, :sync_lists, :create_list, :sync_segment, :get_folder_info]
 
   def show
     # Get folder info if available
@@ -334,6 +334,7 @@ class BrevoConfigurationController < ApplicationController
       progress_data = Rails.cache.read("import_progress_#{job_id}")
       final_result = Rails.cache.read("import_result_#{job_id}")
       
+      
       if final_result
         # Job completed - use final result with actual count (prioritize this)
         respond_to do |format|
@@ -395,6 +396,25 @@ class BrevoConfigurationController < ApplicationController
       respond_to do |format|
         format.html { redirect_to brevo_configuration_path, alert: "Failed to get folder info: #{e.message}" }
         format.json { render json: { success: false, error: "Failed to get folder info: #{e.message}" }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def import_products
+    begin
+      # Start background job
+      job_id = SecureRandom.uuid
+      job = ProductImportJob.perform_later(@company.id, job_id)
+      
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, notice: "Product import started." }
+        format.json { render json: { success: true, message: "Product import started", job_id: job_id } }
+      end
+    rescue => e
+      Rails.logger.error "Error starting product import: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to start product import" }
+        format.json { render json: { success: false, error: "Failed to start product import" }, status: :unprocessable_entity }
       end
     end
   end

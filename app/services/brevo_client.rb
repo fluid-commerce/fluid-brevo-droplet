@@ -255,6 +255,10 @@ class BrevoClient
     Rails.logger.error "Brevo HTTP Error: #{e.message}"
     raise BrevoApiError.new("HTTP Error: #{e.message}", 0)
   end
+
+  def create_products_batch(products)
+    make_request(:post, '/products/batch', body: { products: products }.to_json)
+  end
 end
 
 # Custom error class for Brevo API errors

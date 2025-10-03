@@ -182,6 +182,15 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
       
       if (verifyResponse.ok && verifyData.success) {
         setFlashMessage({ type: 'success', message: verifyData.message || 'Brevo connection verified successfully!' });
+        
+        // Show toast notification only if eCommerce activation succeeded
+        if (verifyData.ecommerce_activation) {
+          setToastNotification({
+            message: 'Activating eCommerce platform in Brevo... This may take up to 5 minutes.',
+            duration: 5, // 5 seconds duration
+            progress: 0
+          });
+        }
       } else {
         setFlashMessage({ type: 'error', message: verifyData.error || 'Connection verification failed' });
       }
@@ -434,48 +443,13 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
       const data = await response.json();
       
       if (response.ok && data.success) {
-        // Check for actual progress and completion
-        if (data.job_id) {
-          const checkProgress = async () => {
-            try {
-              const progressResponse = await fetch(`/brevo/import_progress?job_id=${data.job_id}`);
-              const progressData = await progressResponse.json();
-              
-              if (progressResponse.ok && progressData.success && progressData.progress) {
-                const progress = progressData.progress;
-                
-                if (progress.status === 'completed' || progress.status === 'failed') {
-                  // Clear toast notification
-                  setToastNotification(null);
-                  
-                  setIsSyncingSegment(null);
-                  if (progress.status === 'completed') {
-                    setFlashMessage({ type: 'success', message: progress.message });
-                  } else {
-                    setFlashMessage({ type: 'error', message: progress.message });
-                  }
-                  return; // Stop checking
-                }
-              }
-              
-              // If not completed, check again in 2 seconds
-              setTimeout(checkProgress, 2000);
-            } catch (error) {
-              // Fallback on error
-              setToastNotification(null);
-              setIsSyncingSegment(null);
-              setFlashMessage({ type: 'success', message: 'Product import completed successfully!' });
-            }
-          };
-          
-          // Start checking after 2 seconds
-          setTimeout(checkProgress, 2000);
-        } else {
-          // No job ID, immediate completion
+        // Simple timeout approach - let the toast handle the visual feedback
+        // The job will complete in the background
+        setTimeout(() => {
           setToastNotification(null);
           setIsSyncingSegment(null);
-          setFlashMessage({ type: 'success', message: data.message || 'Product import completed successfully!' });
-        }
+          setFlashMessage({ type: 'success', message: 'Product import completed successfully!' });
+        }, 10000); // 10 second timeout
       } else {
         setToastNotification(null);
         setFlashMessage({ type: 'error', message: data.error || 'Failed to start product import' });

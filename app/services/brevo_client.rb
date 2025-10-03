@@ -210,7 +210,7 @@ class BrevoClient
 
   def make_request(method, endpoint, options = {})
     Rails.logger.info "BrevoClient making #{method.upcase} request to: #{endpoint}"
-    Rails.logger.info "Request headers: #{default_headers.inspect}"
+    Rails.logger.info "Request headers: #{default_headers.except('api-key').merge('api-key' => '[REDACTED]').inspect}"
     
     if options[:body]
       Rails.logger.info "Request body (first 1000 chars): #{options[:body][0..1000]}"
@@ -257,8 +257,61 @@ class BrevoClient
   end
 
   def create_products_batch(products)
-    make_request(:post, '/products/batch', body: { products: products }.to_json)
+    Rails.logger.info "BrevoClient creating products batch with #{products.length} products"
+    Rails.logger.info "Products data: #{products.inspect[0..1000]}"
+    
+    result = make_request(:post, '/products/batch', body: { products: products }.to_json)
+    
+    Rails.logger.info "BrevoClient products batch response: #{result.inspect}"
+    result
   end
+
+  def activate_ecommerce
+    make_request(:post, '/ecommerce/activate')
+  end
+
+  private
+
+  def make_request(method, endpoint, options = {})
+    response = self.class.send(
+      method,
+      endpoint,
+      {
+        headers: {
+          'api-key' => api_key,
+          'Content-Type' => 'application/json',
+          'Accept' => 'application/json'
+        },
+        timeout: 30
+      }.merge(options)
+    )
+
+    handle_response(response)
+  end
+
+  def handle_response(response)
+    case response.code
+    when 200..299
+      response.parsed_response
+    when 400
+      raise BrevoApiError.new("Bad Request: #{response.parsed_response['message']}", response.code)
+    when 401
+      raise BrevoApiError.new("Unauthorized: Invalid API key", response.code)
+    when 403
+      raise BrevoApiError.new("Forbidden: #{response.parsed_response['message']}", response.code)
+    when 404
+      raise BrevoApiError.new("Not Found: #{response.parsed_response['message']}", response.code)
+    when 429
+      raise BrevoApiError.new("Rate Limited: Too many requests", response.code)
+    when 500..599
+      raise BrevoApiError.new("Server Error: #{response.parsed_response['message']}", response.code)
+    else
+      raise BrevoApiError.new("Unexpected response: #{response.code}", response.code)
+    end
+  rescue HTTParty::Error => e
+    raise BrevoApiError.new("HTTP Error: #{e.message}", 0)
+  end
+
 end
 
 # Custom error class for Brevo API errors

@@ -76,9 +76,19 @@ class BrevoConfigurationController < ApplicationController
           "Brevo connection verified successfully!"
         end
         
+        # Try to activate eCommerce platform in the background
+        ecommerce_activated = false
+        begin
+          brevo_client = BrevoClient.new(api_key)
+          brevo_client.activate_ecommerce
+          ecommerce_activated = true
+        rescue => e
+          # Silently fail - don't show toast if eCommerce activation fails
+        end
+        
         respond_to do |format|
           format.html { redirect_to brevo_configuration_path, notice: success_message }
-          format.json { render json: { success: true, message: success_message } }
+          format.json { render json: { success: true, message: success_message, ecommerce_activation: ecommerce_activated } }
         end
       else
       user_friendly_error = case result[:error]

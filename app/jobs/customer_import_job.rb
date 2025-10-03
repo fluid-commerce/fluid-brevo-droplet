@@ -223,7 +223,7 @@ class CustomerImportJob < ApplicationJob
   def transform_customers_to_brevo_format(customers)
     Rails.logger.info "Transforming #{customers.length} customers for Brevo"
     
-    # Create contact data for CSV generation
+    # Create contact data for JSON generation
     contact_data = []
     
     customers.each do |customer|
@@ -237,23 +237,23 @@ class CustomerImportJob < ApplicationJob
         next # Skip this customer
       end
       
-      # Format phone number for Brevo (keep + and add single quote prefix)
+      # Format phone number for Brevo JSON format
       phone = customer['phone']
       formatted_phone = if phone.present?
         # Remove any non-numeric characters except +
         cleaned = phone.gsub(/[^\d+]/, '')
         # If it doesn't start with +, add it
         cleaned = cleaned.start_with?('+') ? cleaned : "+#{cleaned}"
-        # Add single quote at the beginning to preserve the + sign in Brevo
-        cleaned.length >= 8 ? "'#{cleaned}" : ''
+        # Ensure minimum 8 characters as required by Brevo
+        cleaned.length >= 8 ? cleaned : ''
       else
         ''
       end
       
       # Debug phone formatting
       Rails.logger.info "Phone formatting: original='#{phone}', formatted='#{formatted_phone}'"
-      
-      # Create contact data for CSV
+
+      # Create contact data for JSON
       contact_data << {
         email: email,
         firstname: customer['first_name'] || '',
@@ -271,45 +271,39 @@ class CustomerImportJob < ApplicationJob
     Rails.logger.info "Importing contacts to Brevo list #{list_id}"
     Rails.logger.info "Contact data count: #{contact_data.length}"
     
-    # Generate CSV content for Brevo
-    csv_content = generate_csv_from_contacts(contact_data)
+    # Generate JSON body for Brevo as recommended by support
+    json_body = generate_json_from_contacts(contact_data)
     
     import_data = {
       listIds: [list_id.to_i].compact,
       updateExistingContacts: true,
-      fileBody: csv_content
+      jsonBody: json_body
     }
 
-    Rails.logger.info "Brevo import data with CSV: #{import_data.inspect[0..500]}"
+    Rails.logger.info "Brevo import data with JSON: #{import_data.inspect[0..500]}"
     Rails.logger.info "Request body being sent to Brevo:"
     Rails.logger.info "listIds: #{import_data[:listIds]}"
-    Rails.logger.info "fileBody content:"
-    Rails.logger.info csv_content
-    Rails.logger.info "fileBody length: #{csv_content.length} characters"
+    Rails.logger.info "jsonBody count: #{json_body.length} contacts"
+    Rails.logger.info "Sample contact: #{json_body.first.inspect}" if json_body.any?
     
     brevo_client.import_contacts(import_data)
   end
 
   private
 
-  def generate_csv_from_contacts(contact_data)
-    # Create CSV header based on Brevo's expected format
-    header = "EMAIL;FIRSTNAME;LASTNAME;SMS"
-    
-    # Generate CSV rows
-    csv_rows = contact_data.map do |contact|
-      email = contact[:email]
-      firstname = contact[:firstname] || ''
-      lastname = contact[:lastname] || ''
-      sms = contact[:sms] || ''
-      
-      "#{email};#{firstname};#{lastname};#{sms}"
+  def generate_json_from_contacts(contact_data)
+    # Generate JSON body following Brevo's exact format as provided by support
+    contact_data.map do |contact|
+      {
+        email: contact[:email],
+        attributes: {
+          FIRSTNAME: contact[:firstname] || '',
+          LASTNAME: contact[:lastname] || '',
+          SMS: contact[:sms] || '',
+          WHATSAPP: contact[:sms] || ''
+        }
+      }
     end
-    
-    csv_content = ([header] + csv_rows).join("\n")
-    
-    Rails.logger.info "Generated CSV content (first 500 chars): #{csv_content[0..500]}"
-    csv_content
   end
 
   def fluid_client

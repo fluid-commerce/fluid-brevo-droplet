@@ -198,6 +198,22 @@ class BrevoClient
     make_request(:put, '/contacts/batch', body: contacts_data.to_json)
   end
 
+  def create_products_batch(products)
+    Rails.logger.info "BrevoClient creating products batch with #{products.length} products"
+    
+    result = make_request(:post, '/products/batch', body: { 
+      products: products,
+      updateEnabled: true
+    }.to_json)
+    
+    Rails.logger.info "BrevoClient products batch response: #{result.inspect}"
+    result
+  end
+
+  def activate_ecommerce
+    make_request(:post, '/ecommerce/activate')
+  end
+
   private
 
   def default_headers
@@ -254,20 +270,6 @@ class BrevoClient
   rescue HTTParty::Error => e
     Rails.logger.error "Brevo HTTP Error: #{e.message}"
     raise BrevoApiError.new("HTTP Error: #{e.message}", 0)
-  end
-
-  def create_products_batch(products)
-    Rails.logger.info "BrevoClient creating products batch with #{products.length} products"
-    Rails.logger.info "Products data: #{products.inspect[0..1000]}"
-    
-    result = make_request(:post, '/products/batch', body: { products: products }.to_json)
-    
-    Rails.logger.info "BrevoClient products batch response: #{result.inspect}"
-    result
-  end
-
-  def activate_ecommerce
-    make_request(:post, '/ecommerce/activate')
   end
 
   private

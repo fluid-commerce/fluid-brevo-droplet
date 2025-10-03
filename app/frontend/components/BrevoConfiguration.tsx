@@ -69,10 +69,10 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   const [segmentMappings, setSegmentMappings] = useState(initialSegmentMappings || {});
   const [activeTab, setActiveTab] = useState<'configuration' | 'list-management' | 'product-import'>('configuration');
   const [isSyncingSegment, setIsSyncingSegment] = useState<string | null>(null);
-  const [importProgress, setImportProgress] = useState<{
-    percentage: number;
+  const [toastNotification, setToastNotification] = useState<{
     message: string;
-    status: 'running' | 'completed' | 'failed';
+    duration: number; // Duration in seconds
+    progress: number; // Progress percentage (0-100)
   } | null>(null);
 
   useEffect(() => {
@@ -84,6 +84,30 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
       setFlashMessage({ type: 'error', message: error });
     }
   }, [flashMessages, error]);
+
+  // Handle toast notification progress animation
+  useEffect(() => {
+    if (toastNotification) {
+      const interval = setInterval(() => {
+        setToastNotification(prev => {
+          if (!prev) return null;
+          
+          const newProgress = prev.progress + (100 / (prev.duration * 10)); // Update every 100ms
+          
+          if (newProgress >= 100) {
+            return null; // Hide toast when progress reaches 100%
+          }
+          
+          return {
+            ...prev,
+            progress: newProgress
+          };
+        });
+      }, 100); // Update every 100ms for smooth animation
+      
+      return () => clearInterval(interval);
+    }
+  }, [toastNotification]);
 
   // Update API key when company data changes
   useEffect(() => {
@@ -309,10 +333,12 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
     if (isSyncingSegment) return;
     
     setIsSyncingSegment(segment);
-    setImportProgress({
-      percentage: 0,
-      message: 'Starting customer import...',
-      status: 'running'
+    
+    // Show toast notification immediately
+    setToastNotification({
+      message: 'Importing contacts... It can take a few minutes.',
+      duration: 5, // 5 seconds duration
+      progress: 0
     });
     
     try {
@@ -329,55 +355,19 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
       const data = await response.json();
       
       if (response.ok && data.success) {
-        // Update progress to show importing
-        setImportProgress({
-          percentage: 10,
-          message: 'Importing customers...',
-          status: 'running'
-        });
-        
-        // Check for completion with extended polling for long processes
+        // Check for actual progress and completion
         if (data.job_id) {
-          let checkCount = 0;
-          const maxChecks = 30; // Maximum 30 checks over 60 seconds (1 minute)
-          let lastProgressUpdate = Date.now();
-          let simulatedProgress = 10;
-          let progressInterval: NodeJS.Timeout | null = null;
-          
-          // Start simulated progress animation
-          progressInterval = setInterval(() => {
-            if (simulatedProgress < 85) {
-              simulatedProgress += Math.random() * 5; // Random increment between 0-5%
-              setImportProgress(prev => prev ? {
-                ...prev,
-                percentage: Math.min(Math.round(simulatedProgress), 85)
-              } : null);
-            }
-          }, 1000); // Update every second
-          
           const checkProgress = async () => {
-            checkCount++;
-            
             try {
               const progressResponse = await fetch(`/brevo/import_progress?job_id=${data.job_id}`);
               const progressData = await progressResponse.json();
               
               if (progressResponse.ok && progressData.success && progressData.progress) {
                 const progress = progressData.progress;
-                lastProgressUpdate = Date.now();
-                
-                setImportProgress({
-                  percentage: progress.percentage,
-                  message: progress.message,
-                  status: progress.status
-                });
                 
                 if (progress.status === 'completed' || progress.status === 'failed') {
-                  // Clear simulated progress
-                  if (progressInterval) {
-                    clearInterval(progressInterval);
-                    progressInterval = null;
-                  }
+                  // Clear toast notification
+                  setToastNotification(null);
                   
                   setIsSyncingSegment(null);
                   if (progress.status === 'completed') {
@@ -385,93 +375,17 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                   } else {
                     setFlashMessage({ type: 'error', message: progress.message });
                   }
-                  
-                  // Clear progress after 5 seconds
-                  setTimeout(() => setImportProgress(null), 5000);
                   return; // Stop checking
                 }
               }
               
-              // If not completed and haven't exceeded max checks, check again
-              if (checkCount < maxChecks) {
-                // Adaptive polling: faster initially, slower for long processes
-                const delay = checkCount <= 10 ? 2000 : 3000; // 2s for first 10 checks, then 3s
-                setTimeout(checkProgress, delay);
-              } else {
-                // Extended timeout fallback - try one more time after a longer delay
-                if (Date.now() - lastProgressUpdate < 30000) { // If we got progress within last 30s
-                  setImportProgress({
-                    percentage: 90,
-                    message: 'Import is taking longer than expected...',
-                    status: 'running'
-                  });
-                  // Give it one more chance after 10 seconds
-                  setTimeout(async () => {
-                    try {
-                      const finalResponse = await fetch(`/brevo/import_progress?job_id=${data.job_id}`);
-                      const finalData = await finalResponse.json();
-                      
-                      if (finalResponse.ok && finalData.success && finalData.progress) {
-                        const progress = finalData.progress;
-                        setImportProgress({
-                          percentage: progress.percentage,
-                          message: progress.message,
-                          status: progress.status
-                        });
-                        
-                        if (progress.status === 'completed' || progress.status === 'failed') {
-                          setIsSyncingSegment(null);
-                          if (progress.status === 'completed') {
-                            setFlashMessage({ type: 'success', message: progress.message });
-                          } else {
-                            setFlashMessage({ type: 'error', message: progress.message });
-                          }
-                          setTimeout(() => setImportProgress(null), 5000);
-                          return;
-                        }
-                      }
-                    } catch (error) {
-                      // Final fallback
-                    }
-                    
-                    // Ultimate fallback
-                    setImportProgress({
-                      percentage: 100,
-                      message: 'Customer import completed (check logs for details)',
-                      status: 'completed'
-                    });
-                    setIsSyncingSegment(null);
-                    setFlashMessage({ type: 'success', message: `Customer import completed for ${segment.replace('_', ' ')} customers!` });
-                    setTimeout(() => setImportProgress(null), 5000);
-                  }, 10000);
-                } else {
-                  // No progress for 30+ seconds, assume completed
-                  setImportProgress({
-                    percentage: 100,
-                    message: 'Customer import completed',
-                    status: 'completed'
-                  });
-                  setIsSyncingSegment(null);
-                  setFlashMessage({ type: 'success', message: `Customer import completed for ${segment.replace('_', ' ')} customers!` });
-                  setTimeout(() => setImportProgress(null), 5000);
-                }
-              }
+              // If not completed, check again in 2 seconds
+              setTimeout(checkProgress, 2000);
             } catch (error) {
-              // Clear simulated progress on error
-              if (progressInterval) {
-                clearInterval(progressInterval);
-                progressInterval = null;
-              }
-              
               // Fallback on error
-              setImportProgress({
-                percentage: 100,
-                message: 'Customer import completed',
-                status: 'completed'
-              });
+              setToastNotification(null);
               setIsSyncingSegment(null);
               setFlashMessage({ type: 'success', message: `Customer import completed for ${segment.replace('_', ' ')} customers!` });
-              setTimeout(() => setImportProgress(null), 5000);
             }
           };
           
@@ -479,33 +393,18 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
           setTimeout(checkProgress, 2000);
         } else {
           // No job ID, immediate completion
-          setImportProgress({
-            percentage: 100,
-            message: 'Customer import completed',
-            status: 'completed'
-          });
+          setToastNotification(null);
           setIsSyncingSegment(null);
           setFlashMessage({ type: 'success', message: data.message || `Customer import completed for ${segment.replace('_', ' ')} customers!` });
-          setTimeout(() => setImportProgress(null), 5000);
         }
       } else {
-        setImportProgress({
-          percentage: 100,
-          message: 'Customer import failed',
-          status: 'failed'
-        });
+        setToastNotification(null);
         setFlashMessage({ type: 'error', message: data.error || 'Failed to sync customers' });
-        setTimeout(() => setImportProgress(null), 5000);
         setIsSyncingSegment(null);
       }
     } catch (error) {
-      setImportProgress({
-        percentage: 100,
-        message: 'Customer import failed',
-        status: 'failed'
-      });
+      setToastNotification(null);
       setFlashMessage({ type: 'error', message: 'An error occurred while syncing customers' });
-      setTimeout(() => setImportProgress(null), 5000);
       setIsSyncingSegment(null);
     }
   };
@@ -514,10 +413,12 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
     if (isSyncingSegment) return;
     
     setIsSyncingSegment('products');
-    setImportProgress({
-      percentage: 0,
-      message: 'Starting product import...',
-      status: 'running'
+    
+    // Show toast notification immediately
+    setToastNotification({
+      message: 'Importing products... It can take a few minutes.',
+      duration: 5, // 5 seconds duration
+      progress: 0
     });
     
     try {
@@ -533,55 +434,19 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
       const data = await response.json();
       
       if (response.ok && data.success) {
-        // Update progress to show importing
-        setImportProgress({
-          percentage: 10,
-          message: 'Importing products...',
-          status: 'running'
-        });
-        
-        // Check for completion with extended polling for long processes
+        // Check for actual progress and completion
         if (data.job_id) {
-          let checkCount = 0;
-          const maxChecks = 40; // Maximum 40 checks over 2 minutes for products
-          let lastProgressUpdate = Date.now();
-          let simulatedProgress = 10;
-          let progressInterval: NodeJS.Timeout | null = null;
-          
-          // Start simulated progress animation
-          progressInterval = setInterval(() => {
-            if (simulatedProgress < 85) {
-              simulatedProgress += Math.random() * 3; // Slower increment for products (0-3%)
-              setImportProgress(prev => prev ? {
-                ...prev,
-                percentage: Math.min(Math.round(simulatedProgress), 85)
-              } : null);
-            }
-          }, 1500); // Update every 1.5 seconds for products
-          
           const checkProgress = async () => {
-            checkCount++;
-            
             try {
               const progressResponse = await fetch(`/brevo/import_progress?job_id=${data.job_id}`);
               const progressData = await progressResponse.json();
               
               if (progressResponse.ok && progressData.success && progressData.progress) {
                 const progress = progressData.progress;
-                lastProgressUpdate = Date.now();
-                
-                setImportProgress({
-                  percentage: progress.percentage,
-                  message: progress.message,
-                  status: progress.status
-                });
                 
                 if (progress.status === 'completed' || progress.status === 'failed') {
-                  // Clear simulated progress
-                  if (progressInterval) {
-                    clearInterval(progressInterval);
-                    progressInterval = null;
-                  }
+                  // Clear toast notification
+                  setToastNotification(null);
                   
                   setIsSyncingSegment(null);
                   if (progress.status === 'completed') {
@@ -589,93 +454,17 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                   } else {
                     setFlashMessage({ type: 'error', message: progress.message });
                   }
-                  
-                  // Clear progress after 5 seconds
-                  setTimeout(() => setImportProgress(null), 5000);
                   return; // Stop checking
                 }
               }
               
-              // If not completed and haven't exceeded max checks, check again
-              if (checkCount < maxChecks) {
-                // Adaptive polling: faster initially, slower for long processes
-                const delay = checkCount <= 15 ? 2000 : 3000; // 2s for first 15 checks, then 3s
-                setTimeout(checkProgress, delay);
-              } else {
-                // Extended timeout fallback - try one more time after a longer delay
-                if (Date.now() - lastProgressUpdate < 60000) { // If we got progress within last 60s
-                  setImportProgress({
-                    percentage: 90,
-                    message: 'Product import is taking longer than expected...',
-                    status: 'running'
-                  });
-                  // Give it one more chance after 15 seconds
-                  setTimeout(async () => {
-                    try {
-                      const finalResponse = await fetch(`/brevo/import_progress?job_id=${data.job_id}`);
-                      const finalData = await finalResponse.json();
-                      
-                      if (finalResponse.ok && finalData.success && finalData.progress) {
-                        const progress = finalData.progress;
-                        setImportProgress({
-                          percentage: progress.percentage,
-                          message: progress.message,
-                          status: progress.status
-                        });
-                        
-                        if (progress.status === 'completed' || progress.status === 'failed') {
-                          setIsSyncingSegment(null);
-                          if (progress.status === 'completed') {
-                            setFlashMessage({ type: 'success', message: progress.message });
-                          } else {
-                            setFlashMessage({ type: 'error', message: progress.message });
-                          }
-                          setTimeout(() => setImportProgress(null), 5000);
-                          return;
-                        }
-                      }
-                    } catch (error) {
-                      // Final fallback
-                    }
-                    
-                    // Ultimate fallback
-                    setImportProgress({
-                      percentage: 100,
-                      message: 'Product import completed (check logs for details)',
-                      status: 'completed'
-                    });
-                    setIsSyncingSegment(null);
-                    setFlashMessage({ type: 'success', message: 'Product import completed successfully!' });
-                    setTimeout(() => setImportProgress(null), 5000);
-                  }, 15000);
-                } else {
-                  // No progress for 60+ seconds, assume completed
-                  setImportProgress({
-                    percentage: 100,
-                    message: 'Product import completed',
-                    status: 'completed'
-                  });
-                  setIsSyncingSegment(null);
-                  setFlashMessage({ type: 'success', message: 'Product import completed successfully!' });
-                  setTimeout(() => setImportProgress(null), 5000);
-                }
-              }
+              // If not completed, check again in 2 seconds
+              setTimeout(checkProgress, 2000);
             } catch (error) {
-              // Clear simulated progress on error
-              if (progressInterval) {
-                clearInterval(progressInterval);
-                progressInterval = null;
-              }
-              
               // Fallback on error
-              setImportProgress({
-                percentage: 100,
-                message: 'Product import completed',
-                status: 'completed'
-              });
+              setToastNotification(null);
               setIsSyncingSegment(null);
               setFlashMessage({ type: 'success', message: 'Product import completed successfully!' });
-              setTimeout(() => setImportProgress(null), 5000);
             }
           };
           
@@ -683,34 +472,19 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
           setTimeout(checkProgress, 2000);
         } else {
           // No job ID, immediate completion
-          setImportProgress({
-            percentage: 100,
-            message: 'Product import completed',
-            status: 'completed'
-          });
+          setToastNotification(null);
           setIsSyncingSegment(null);
           setFlashMessage({ type: 'success', message: data.message || 'Product import completed successfully!' });
-          setTimeout(() => setImportProgress(null), 5000);
         }
       } else {
-        setImportProgress({
-          percentage: 100,
-          message: 'Product import failed',
-          status: 'failed'
-        });
+        setToastNotification(null);
         setFlashMessage({ type: 'error', message: data.error || 'Failed to start product import' });
-        setTimeout(() => setImportProgress(null), 5000);
         setIsSyncingSegment(null);
       }
     } catch (error) {
       console.error('Error importing products:', error);
-      setImportProgress({
-        percentage: 100,
-        message: 'Product import failed',
-        status: 'failed'
-      });
+      setToastNotification(null);
       setFlashMessage({ type: 'error', message: 'An error occurred while importing products' });
-      setTimeout(() => setImportProgress(null), 5000);
       setIsSyncingSegment(null);
     }
   };
@@ -745,49 +519,39 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
           </div>
         )}
 
-        {/* Import Progress */}
-        {importProgress && (
-          <div className="rounded-md p-4 mb-6 bg-blue-50 border border-blue-200">
+        {/* Toast Notification */}
+        {toastNotification && (
+          <div className="fixed top-4 right-4 z-50 bg-teal-50 border border-teal-200 rounded-lg shadow-lg p-4 min-w-80">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                {importProgress.status === 'running' && (
-                  <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                )}
-                {importProgress.status === 'completed' && (
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
-                {importProgress.status === 'failed' && (
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
+                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
               </div>
               <div className="ml-3 flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-blue-800">
-                    {importProgress.message}
-                  </p>
-                  <span className="text-sm text-blue-600 font-medium">
-                    {importProgress.percentage}%
-                  </span>
-                </div>
+                <p className="text-sm font-medium text-gray-800">
+                  {toastNotification.message}
+                </p>
                 <div className="mt-2">
-                  <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div className="w-full bg-teal-200 rounded-full h-1">
                     <div 
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        importProgress.status === 'completed' ? 'bg-green-500' :
-                        importProgress.status === 'failed' ? 'bg-red-500' : 'bg-blue-600'
-                      }`}
-                      style={{ width: `${importProgress.percentage}%` }}
+                      className="bg-green-500 h-1 rounded-full transition-all duration-100"
+                      style={{ width: `${toastNotification.progress}%` }}
                     ></div>
                   </div>
                 </div>
+              </div>
+              <div className="ml-3 flex-shrink-0">
+                <button
+                  onClick={() => setToastNotification(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>

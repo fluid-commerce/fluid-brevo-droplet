@@ -23,10 +23,16 @@ class ProductImportJob < ApplicationJob
       imported_product_ids = Set.new
       
       loop do
-        # Fetch products for this page
+        Rails.logger.info "Fetching products page #{page}..."
+        # Fetch products for this page with timeout
+        start_time = Time.current
         products_response = fluid_client.get("/api/company/v1/products", { page: page, per_page: per_page })
-        products = products_response['products'] || []
+        api_time = Time.current - start_time
+        Rails.logger.info "Fluid API call took #{api_time.round(2)}s"
         
+        products = products_response['products'] || []
+        Rails.logger.info "Received #{products.length} products from Fluid API"
+
         # Get total count from first page if not already set
         if total_products.nil?
           # Use pagination metadata as initial estimate, but we'll adjust based on actual products found
@@ -42,7 +48,7 @@ class ProductImportJob < ApplicationJob
         
         # If we got fewer products than per_page, this is the last page
         if products.length < per_page
-          Rails.logger.info "Reached last page (#{products.length} < #{per_page} products), stopping after this page"
+          Rails.logger.info "Reached last page (#{products.length} < #{per_page} products), this is the final page"
           # Adjust total_products to reflect actual count found
           total_products = total_imported + products.length
           Rails.logger.info "Adjusted total products to actual count: #{total_products}"
@@ -52,8 +58,9 @@ class ProductImportJob < ApplicationJob
         new_products = products.reject { |product| imported_product_ids.include?(product['id']) }
         
         if new_products.empty?
-          Rails.logger.info "No new products on page #{page}, stopping import"
-          break
+          Rails.logger.info "No new products on page #{page}, skipping to next page"
+          page += 1
+          next
         end
         
         progress_percentage = 10 + (total_imported * 80 / total_products)
@@ -71,8 +78,14 @@ class ProductImportJob < ApplicationJob
         
         update_progress(10 + (total_imported * 80 / total_products), "Imported #{total_imported}/#{total_products} products")
         
-        # Break if we've imported all products or if this was the last page
+        # Break if we've imported all products OR if we've reached the last page
         break if total_imported >= total_products || products.length < per_page
+        
+        # Safety break to prevent infinite loops
+        if page > 100
+          Rails.logger.error "Safety break: Too many pages processed (#{page}), stopping to prevent infinite loop"
+          break
+        end
         
         page += 1
       end
@@ -172,25 +185,26 @@ class ProductImportJob < ApplicationJob
     # If product is not in stock, return 0
     return 0 unless product['in_stock']
     
-    # If track_quantity is false, return 0 (unlimited stock)
-    return 0 unless product['track_quantity']
-    
-    # Get stock from variants' inventory_levels
+    # Get stock from variants
     variants = product['variants'] || []
+    return 0 if variants.empty?
+    
     total_stock = 0
     
     variants.each do |variant|
+      # Check if this variant tracks quantity
+      next unless variant['track_quantity']
+      
+      # First try to get stock from inventory_levels
       inventory_levels = variant['inventory_levels'] || []
-      inventory_levels.each do |level|
-        # Sum up the 'available' quantity from all inventory levels
-        total_stock += level['available'].to_i
+      if inventory_levels.any?
+        inventory_levels.each do |level|
+          total_stock += level['available'].to_i
+        end
+      else
+        # Fallback to direct inventory_quantity
+        total_stock += variant['inventory_quantity'].to_i if variant['inventory_quantity']
       end
-    end
-    
-    # If no variants or no inventory levels, check if there's a direct inventory_quantity
-    if total_stock == 0 && variants.any?
-      first_variant = variants.first
-      total_stock = first_variant['inventory_quantity'].to_i if first_variant['inventory_quantity']
     end
     
     total_stock

@@ -21,6 +21,9 @@ class Setting < ApplicationRecord
   end
 
   def self.respond_to_missing?(name, include_private = false)
+    # Skip checking Rails internal methods against the database
+    return super if rails_internal_method?(name.to_s)
+    
     Setting.exists?(name: name.to_s) || super
   end
 
@@ -36,6 +39,11 @@ class Setting < ApplicationRecord
   end
 
 private
+
+  def self.rails_internal_method?(method_name)
+    # Common Rails internal method patterns that should not be checked against database
+    method_name.match?(/\A(define_method_|attribute_|saved_change_|will_change_|previous_change_|previously_|clear_attribute_|restore_attribute_)/)
+  end
 
   def validate_schema
     return errors.add(:schema, "is missing") if schema.nil?

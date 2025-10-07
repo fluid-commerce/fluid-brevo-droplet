@@ -210,6 +210,23 @@ class BrevoClient
     result
   end
 
+  def create_categories_batch(categories)
+    Rails.logger.info "BrevoClient creating categories batch with #{categories.length} categories"
+    Rails.logger.info "Categories being sent: #{categories.inspect}"
+
+    request_body = { 
+      categories: categories,
+      updateEnabled: true
+    }
+
+    Rails.logger.info "Request body: #{request_body.to_json}"
+    
+    result = make_request(:post, '/categories/batch', body: request_body.to_json)
+    
+    Rails.logger.info "BrevoClient categories batch response: #{result.inspect}"
+    result
+  end
+
   def activate_ecommerce
     make_request(:post, '/ecommerce/activate')
   end

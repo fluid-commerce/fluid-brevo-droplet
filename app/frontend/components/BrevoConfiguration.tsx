@@ -463,6 +463,50 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
     }
   };
 
+  const handleImportCategories = async () => {
+    if (isSyncingSegment) return;
+    
+    setIsSyncingSegment('categories');
+    
+    // Show toast notification immediately
+    setToastNotification({
+      message: 'Importing categories... It can take a few minutes.',
+      duration: 5, // 5 seconds duration
+      progress: 0
+    });
+    
+    try {
+      const response = await fetch('/brevo/import_categories', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        // Simple timeout approach - let the toast handle the visual feedback
+        // The job will complete in the background
+        setTimeout(() => {
+          setToastNotification(null);
+          setIsSyncingSegment(null);
+          setFlashMessage({ type: 'success', message: 'Category import completed successfully!' });
+        }, 10000); // 10 second timeout
+      } else {
+        setToastNotification(null);
+        setFlashMessage({ type: 'error', message: data.error || 'Failed to start category import' });
+        setIsSyncingSegment(null);
+      }
+    } catch (error) {
+      console.error('Error importing categories:', error);
+      setToastNotification(null);
+      setFlashMessage({ type: 'error', message: 'An error occurred while importing categories' });
+      setIsSyncingSegment(null);
+    }
+  };
 
   const isConnected = apiKey.length > 0;
 
@@ -674,7 +718,31 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                 </div>
               </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="bg-gray-50 rounded-lg p-6">
+                      <div className="flex items-center mb-4">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                          <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-900">Manual Categories Sync</h4>
+                          <p className="text-sm text-gray-600">Sync product categories on-demand</p>
+                        </div>
+                      </div>
+                      <p className="text-gray-600 mb-6">
+                        Manually import your product categories from Fluid to Brevo for better product organization and filtering.
+                      </p>
+                      <button
+                        onClick={handleImportCategories}
+                        disabled={isSyncingSegment === 'categories'}
+                        className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSyncingSegment === 'categories' ? 'Syncing Categories...' : 'Manual Categories Sync'}
+                      </button>
+                    </div>
+
                     <div className="bg-gray-50 rounded-lg p-6">
                       <div className="flex items-center mb-4">
                         <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">

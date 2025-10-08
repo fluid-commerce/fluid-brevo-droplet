@@ -508,6 +508,51 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
     }
   };
 
+  const handleImportOrders = async () => {
+    if (isSyncingSegment) return;
+    
+    setIsSyncingSegment('orders');
+    
+    // Show toast notification immediately
+    setToastNotification({
+      message: 'Importing orders... It can take a few minutes.',
+      duration: 5, // 5 seconds duration
+      progress: 0
+    });
+    
+    try {
+      const response = await fetch('/brevo/import_orders', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        // Simple timeout approach - let the toast handle the visual feedback
+        // The job will complete in the background
+        setTimeout(() => {
+          setToastNotification(null);
+          setIsSyncingSegment(null);
+          setFlashMessage({ type: 'success', message: 'Order import completed successfully!' });
+        }, 10000); // 10 second timeout
+      } else {
+        setToastNotification(null);
+        setFlashMessage({ type: 'error', message: data.error || 'Failed to start order import' });
+        setIsSyncingSegment(null);
+      }
+    } catch (error) {
+      console.error('Error importing orders:', error);
+      setToastNotification(null);
+      setFlashMessage({ type: 'error', message: 'An error occurred while importing orders' });
+      setIsSyncingSegment(null);
+    }
+  };
+
   const isConnected = apiKey.length > 0;
 
   return (
@@ -783,9 +828,11 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                         Manually import your order history from Fluid to Brevo for advanced analytics and customer insights.
                       </p>
                       <button
-                        className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+                        onClick={handleImportOrders}
+                        disabled={isSyncingSegment === 'orders'}
+                        className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Manual Orders Sync
+                        {isSyncingSegment === 'orders' ? 'Syncing Orders...' : 'Manual Orders Sync'}
                       </button>
                     </div>
                   </div>

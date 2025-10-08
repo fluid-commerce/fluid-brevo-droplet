@@ -40,12 +40,26 @@ class CustomerImportJob < ApplicationJob
         # Break if no customers returned from API
         break if customers.empty?
         
+        # Check if we've reached the last page using pagination metadata
+        pagination = fluid_customers.dig('meta', 'pagination')
+        is_last_page = false
+        
+        if pagination
+          current_page = pagination['current_page']
+          total_pages = pagination['total_pages']
+          Rails.logger.info "Page #{current_page} of #{total_pages} (pagination metadata)"
+          is_last_page = current_page >= total_pages
+        elsif customers.length < per_page
+          Rails.logger.info "Reached last page (#{customers.length} < #{per_page} customers), this is the final page"
+          is_last_page = true
+        end
+        
         # Process this page immediately - no storing in memory
         page_imported = process_customer_page(customers, @list_id)
         total_imported += page_imported
         
-        # Break if we've imported all customers for this segment
-        break if total_imported >= total_customers
+        # Break if we've reached the last page or imported all customers
+        break if is_last_page || total_imported >= total_customers
         
         page += 1
         
@@ -93,7 +107,7 @@ class CustomerImportJob < ApplicationJob
       Rails.logger.info "Fetching customer count for segment: #{@segment}"
       
       # Fetch a reasonable number of customers to count
-      params = { page: 1, per_page: 1000 } # Get up to 1000 customers to count
+      params = { query: { page: 1, per_page: 1000 } } # Get up to 1000 customers to count
       response = fluid_client.get("/api/customers", params)
       
       # Debug the response
@@ -124,7 +138,7 @@ class CustomerImportJob < ApplicationJob
         Rails.logger.info "Trying fallback method..."
         
         # Fetch customers and filter them
-        params = { page: 1, per_page: 1000 }
+        params = { query: { page: 1, per_page: 1000 } }
         response = fluid_client.get("/api/customers", params)
         
         all_customers = response.dig('customers') || []
@@ -151,8 +165,10 @@ class CustomerImportJob < ApplicationJob
       
       # Fetch customers without API filtering (is_rep parameter doesn't exist)
       params = {
-        page: page,
-        per_page: per_page
+        query: {
+          page: page,
+          per_page: per_page
+        }
       }
       
       response = fluid_client.get("/api/customers", params)

@@ -26,32 +26,39 @@ class ProductImportJob < ApplicationJob
         Rails.logger.info "Fetching products page #{page}..."
         # Fetch products for this page with timeout
         start_time = Time.current
-        products_response = fluid_client.get("/api/company/v1/products", { page: page, per_page: per_page })
+        products_response = fluid_client.get("/api/company/v1/products", { query: { page: page, per_page: per_page } })
         api_time = Time.current - start_time
         Rails.logger.info "Fluid API call took #{api_time.round(2)}s"
         
         products = products_response['products'] || []
         Rails.logger.info "Received #{products.length} products from Fluid API"
 
-        # Get total count from first page if not already set
+        # Get total count from pagination metadata
         if total_products.nil?
-          # Use pagination metadata as initial estimate, but we'll adjust based on actual products found
           if products_response['meta'] && products_response['meta']['pagination']
             total_products = products_response['meta']['pagination']['total_count'] || 0
+            Rails.logger.info "Total products from pagination metadata: #{total_products}"
           else
             total_products = products.length
+            Rails.logger.warn "No pagination metadata found, using current page count: #{total_products}"
           end
-          update_progress(10, "Found #{total_products} products to import (estimated)")
+          update_progress(10, "Found #{total_products} products to import")
         end
         
         break if products.empty?
         
-        # If we got fewer products than per_page, this is the last page
-        if products.length < per_page
+        # Check if we've reached the last page using pagination metadata
+        pagination = products_response.dig('meta', 'pagination')
+        is_last_page = false
+        
+        if pagination
+          current_page = pagination['current_page']
+          total_pages = pagination['total_pages']
+          Rails.logger.info "Page #{current_page} of #{total_pages} (pagination metadata)"
+          is_last_page = current_page >= total_pages
+        elsif products.length < per_page
           Rails.logger.info "Reached last page (#{products.length} < #{per_page} products), this is the final page"
-          # Adjust total_products to reflect actual count found
-          total_products = total_imported + products.length
-          Rails.logger.info "Adjusted total products to actual count: #{total_products}"
+          is_last_page = true
         end
         
         # Filter out already imported products to avoid duplicates
@@ -59,6 +66,8 @@ class ProductImportJob < ApplicationJob
         
         if new_products.empty?
           Rails.logger.info "No new products on page #{page}, skipping to next page"
+          # Break if this is the last page, otherwise continue
+          break if is_last_page
           page += 1
           next
         end
@@ -78,14 +87,8 @@ class ProductImportJob < ApplicationJob
         
         update_progress(10 + (total_imported * 80 / total_products), "Imported #{total_imported}/#{total_products} products")
         
-        # Break if we've imported all products OR if we've reached the last page
-        break if total_imported >= total_products || products.length < per_page
-        
-        # Safety break to prevent infinite loops
-        if page > 100
-          Rails.logger.error "Safety break: Too many pages processed (#{page}), stopping to prevent infinite loop"
-          break
-        end
+        # Break if we've reached the last page
+        break if is_last_page
         
         page += 1
       end

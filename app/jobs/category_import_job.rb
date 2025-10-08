@@ -25,32 +25,39 @@ class CategoryImportJob < ApplicationJob
       loop do
         Rails.logger.info "Fetching categories page #{page}..."
         start_time = Time.current
-        categories_response = fluid_client.get("/api/company/v1/categories", { page: page, per_page: per_page })
+        categories_response = fluid_client.get("/api/company/v1/categories", { query: { page: page, per_page: per_page } })
         api_time = Time.current - start_time
         Rails.logger.info "Fluid API call took #{api_time.round(2)}s"
         
         categories = categories_response['categories'] || []
         Rails.logger.info "Received #{categories.length} categories from Fluid API"
         
-        # Get total count from first page if not already set
+        # Get total count from pagination metadata
         if total_categories.nil?
-          # Use pagination metadata as initial estimate, but we'll adjust based on actual categories found
           if categories_response['meta'] && categories_response['meta']['pagination']
             total_categories = categories_response['meta']['pagination']['total_count'] || 0
+            Rails.logger.info "Total categories from pagination metadata: #{total_categories}"
           else
             total_categories = categories.length
+            Rails.logger.warn "No pagination metadata found, using current page count: #{total_categories}"
           end
-          update_progress(10, "Found #{total_categories} categories to import (estimated)")
+          update_progress(10, "Found #{total_categories} categories to import")
         end
         
         break if categories.empty?
         
-        # If we got fewer categories than per_page, this is the last page
-        if categories.length < per_page
+        # Check if we've reached the last page using pagination metadata
+        pagination = categories_response.dig('meta', 'pagination')
+        is_last_page = false
+        
+        if pagination
+          current_page = pagination['current_page']
+          total_pages = pagination['total_pages']
+          Rails.logger.info "Page #{current_page} of #{total_pages} (pagination metadata)"
+          is_last_page = current_page >= total_pages
+        elsif categories.length < per_page
           Rails.logger.info "Reached last page (#{categories.length} < #{per_page} categories), this is the final page"
-          # Adjust total_categories to reflect actual count found
-          total_categories = total_imported + categories.length
-          Rails.logger.info "Adjusted total categories to actual count: #{total_categories}"
+          is_last_page = true
         end
         
         # Filter out already imported categories to avoid duplicates
@@ -58,6 +65,8 @@ class CategoryImportJob < ApplicationJob
         
         if new_categories.empty?
           Rails.logger.info "No new categories on page #{page}, skipping to next page"
+          # Break if this is the last page, otherwise continue
+          break if is_last_page
           page += 1
           next
         end
@@ -77,8 +86,8 @@ class CategoryImportJob < ApplicationJob
         
         update_progress(10 + (total_imported * 80 / total_categories), "Imported #{total_imported}/#{total_categories} categories")
         
-        # Break if we've imported all categories OR if we've reached the last page
-        break if total_imported >= total_categories || categories.length < per_page
+        # Break if we've reached the last page
+        break if is_last_page
         
         page += 1
       end

@@ -21,6 +21,7 @@ Rails.application.routes.draw do
   get "brevo/folder_info", to: "brevo_configuration#get_folder_info", as: :brevo_folder_info
   post "brevo/import_products", to: "brevo_configuration#import_products", as: :brevo_import_products
   post "brevo/import_categories", to: "brevo_configuration#import_categories", as: :brevo_import_categories
+  post "brevo/import_orders", to: "brevo_configuration#import_orders", as: :brevo_import_orders
 
   namespace :admin do
     get "dashboard/index"

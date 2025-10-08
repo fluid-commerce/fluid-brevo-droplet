@@ -4,7 +4,7 @@ class BrevoConfigurationController < ApplicationController
   before_action :authenticate_dri
   before_action :set_company, except: [:import_progress]
   before_action :ensure_company_exist, except: [:import_progress]
-  before_action :ensure_credentials_exist, only: [:verify_connection, :verify_email, :manual_sync, :import_products, :import_categories, :sync_lists, :create_list, :sync_segment, :get_folder_info]
+  before_action :ensure_credentials_exist, only: [:verify_connection, :verify_email, :manual_sync, :import_products, :import_categories, :import_orders, :sync_lists, :create_list, :sync_segment, :get_folder_info]
 
   def show
     # Get folder info if available
@@ -444,6 +444,25 @@ class BrevoConfigurationController < ApplicationController
       respond_to do |format|
         format.html { redirect_to brevo_configuration_path, alert: "Failed to start category import" }
         format.json { render json: { success: false, error: "Failed to start category import" }, status: :unprocessable_entity }
+      end
+    end
+  end
+
+  def import_orders
+    begin
+      # Start background job
+      job_id = SecureRandom.uuid
+      job = OrderImportJob.perform_later(@company.id, job_id)
+      
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, notice: "Order import started." }
+        format.json { render json: { success: true, message: "Order import started", job_id: job_id } }
+      end
+    rescue => e
+      Rails.logger.error "Error starting order import: #{e.message}"
+      respond_to do |format|
+        format.html { redirect_to brevo_configuration_path, alert: "Failed to start order import" }
+        format.json { render json: { success: false, error: "Failed to start order import" }, status: :unprocessable_entity }
       end
     end
   end

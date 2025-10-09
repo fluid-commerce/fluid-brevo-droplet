@@ -1,0 +1,105 @@
+{
+  "http_interactions": [
+    {
+      "request": {
+        "method": "post",
+        "uri": "https://api.brevo.com/v3/categories/batch",
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"categories\":[{\"id\":\"test_category_a3c91bfe\",\"name\":\"Test Category\",\"url\":\"https://example.com/category\"}],\"updateEnabled\":true}"
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 201,
+          "message": "Created"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:23:16 GMT"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Content-Length": [
+            "35"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Cf-Ray": [
+            "98c0405fbe488d9f-HEL"
+          ],
+          "Vary": [
+            "Origin, Accept-Encoding"
+          ],
+          "X-Xss-Protection": [
+            "0"
+          ],
+          "X-Frame-Options": [
+            "SAMEORIGIN"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=0; includeSubDomains"
+          ],
+          "X-Download-Options": [
+            "noopen"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Etag": [
+            "W/\"23-Wy+5HeZIh1tijJ8vAl8xS/LbxfA\""
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "602"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "9090d36b-30a5-9004-a39a-b3e9e31f77af"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ]
+        },
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"createdCount\":1,\"updatedCount\":0}"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:23:16 GMT"
+    }
+  ],
+  "recorded_with": "VCR 6.3.1"
+}

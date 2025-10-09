@@ -12,7 +12,37 @@ RSpec.describe CustomerImportJob, type: :job do
     Rails.cache.clear
   end
 
-  describe '#perform', :vcr do
+  describe '#perform' do
+    let(:fluid_response) do
+      {
+        'customers' => [
+          {
+            'id' => 1,
+            'email' => 'customer@example.com',
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'phone' => '1234567890',
+            'is_rep' => false
+          }
+        ],
+        'meta' => {
+          'pagination' => {
+            'current_page' => 1,
+            'total_pages' => 1,
+            'total_count' => 1
+          }
+        }
+      }
+    end
+
+    before do
+      # Mock Fluid API response
+      allow_any_instance_of(FluidClient).to receive(:get).and_return(fluid_response)
+      
+      # Mock Brevo API response
+      allow_any_instance_of(BrevoClient).to receive(:import_contacts).and_return({ 'processId' => '123' })
+    end
+
     it 'imports customers from Fluid to Brevo' do
       expect {
         described_class.new.perform(company.id, segment, list_id, job_id)
@@ -33,29 +63,53 @@ RSpec.describe CustomerImportJob, type: :job do
     end
 
     context 'when no customers are found' do
-      it 'handles empty customer list gracefully', :vcr do
-        # This would need a VCR cassette with no customers
+      before do
+        allow_any_instance_of(FluidClient).to receive(:get).and_return({
+          'customers' => [],
+          'meta' => { 'pagination' => { 'current_page' => 1, 'total_pages' => 1, 'total_count' => 0 } }
+        })
+      end
+
+      it 'handles empty customer list gracefully' do
         expect {
           described_class.new.perform(company.id, segment, list_id, job_id)
         }.not_to raise_error
+        
+        progress = Rails.cache.read("import_progress_#{job_id}")
+        expect(progress).to be_present
+        expect(progress[:percentage]).to eq(100)
       end
     end
 
     context 'when an error occurs' do
-      let(:invalid_company) { create(:company, authentication_token: 'invalid_token') }
-
       before do
-        create(:integration_setting, company: invalid_company, credentials: { 'brevo' => { 'api_key' => 'invalid' } })
+        # Mock: first call for count succeeds, second call during fetch raises error
+        count_response = {
+          'customers' => [{ 'id' => 1, 'is_rep' => false }],
+          'meta' => { 'pagination' => { 'total_count' => 1 } }
+        }
+        
+        call_count = 0
+        allow_any_instance_of(FluidClient).to receive(:get) do
+          call_count += 1
+          if call_count == 1
+            count_response # First call for count succeeds
+          else
+            raise StandardError.new('API Error') # Subsequent calls fail
+          end
+        end
       end
 
-      it 'updates progress to failed status', :vcr do
+      it 'updates progress to failed status' do
+        # CustomerImportJob catches errors and updates progress before re-raising
         expect {
-          described_class.new.perform(invalid_company.id, segment, list_id, job_id)
-        }.to raise_error
+          described_class.new.perform(company.id, segment, list_id, job_id)
+        }.to raise_error(StandardError, 'API Error')
 
         progress = Rails.cache.read("import_progress_#{job_id}")
         expect(progress).to be_present
         expect(progress[:message]).to include('failed')
+        expect(progress[:status]).to eq('failed')
       end
     end
   end
@@ -68,7 +122,17 @@ RSpec.describe CustomerImportJob, type: :job do
       job.instance_variable_set(:@segment, segment)
     end
 
-    it 'gets total customer count for a segment', :vcr do
+    it 'gets total customer count for a segment' do
+      fluid_response = {
+        'customers' => [
+          { 'id' => 1, 'is_rep' => false },
+          { 'id' => 2, 'is_rep' => false }
+        ],
+        'meta' => { 'pagination' => { 'total_count' => 2 } }
+      }
+      
+      allow_any_instance_of(FluidClient).to receive(:get).and_return(fluid_response)
+      
       count = job.send(:get_total_customer_count)
 
       expect(count).to be >= 0
@@ -121,12 +185,28 @@ RSpec.describe CustomerImportJob, type: :job do
       job.instance_variable_set(:@segment, segment)
     end
 
-    it 'fetches and filters customers for a page', :vcr do
+    it 'fetches and filters customers for a page' do
+      fluid_response = {
+        'customers' => [
+          { 'id' => 1, 'email' => 'test@example.com', 'is_rep' => false },
+          { 'id' => 2, 'email' => 'rep@example.com', 'is_rep' => true }
+        ],
+        'meta' => { 'pagination' => { 'current_page' => 1, 'total_pages' => 1 } }
+      }
+      
+      allow_any_instance_of(FluidClient).to receive(:get).and_return(fluid_response)
+      
       result = job.send(:fetch_customers_page, 1, 100)
 
       expect(result).to be_a(Hash)
       expect(result).to have_key('customers')
       expect(result['customers']).to be_an(Array)
+      # Should filter based on segment
+      if segment == 'everyone_list_id'
+        expect(result['customers'].length).to eq(2)
+      elsif segment == 'customer_list_id'
+        expect(result['customers'].length).to eq(1)
+      end
     end
   end
 

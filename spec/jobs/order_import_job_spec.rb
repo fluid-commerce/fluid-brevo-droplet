@@ -11,7 +11,46 @@ RSpec.describe OrderImportJob, type: :job do
     Rails.cache.clear
   end
 
-  describe '#perform', :vcr do
+  describe '#perform' do
+    let(:fluid_response) do
+      {
+        'orders' => [
+          {
+            'id' => '1',
+            'created_at' => '2024-01-01T00:00:00Z',
+            'updated_at' => '2024-01-01T00:00:00Z',
+            'status' => 'awaiting_shipment',
+            'amount' => 99.99,
+            'email' => 'customer@example.com',
+            'items' => [
+              { 'id' => '1', 'quantity' => 2, 'price' => 49.99 }
+            ],
+            'bill_to' => {
+              'address1' => '123 Main St',
+              'city' => 'Test City',
+              'country_code' => 'US',
+              'postal_code' => '12345'
+            }
+          }
+        ],
+        'meta' => {
+          'pagination' => {
+            'current_page' => 1,
+            'total_pages' => 1,
+            'total_count' => 1
+          }
+        }
+      }
+    end
+
+    before do
+      # Mock Fluid API response
+      allow_any_instance_of(FluidClient).to receive(:get).and_return(fluid_response)
+      
+      # Mock Brevo API response
+      allow_any_instance_of(BrevoClient).to receive(:create_orders_batch).and_return({})
+    end
+
     it 'imports orders from Fluid to Brevo' do
       expect {
         described_class.new.perform(company.id, job_id)
@@ -33,17 +72,14 @@ RSpec.describe OrderImportJob, type: :job do
     end
 
     context 'when an error occurs' do
-      let(:invalid_company) { create(:company, authentication_token: 'invalid_token') }
-
       before do
-        # Create integration setting with invalid credentials
-        create(:integration_setting, company: invalid_company, credentials: { 'brevo' => { 'api_key' => 'invalid' } })
+        allow_any_instance_of(FluidClient).to receive(:get).and_raise(StandardError.new('API Error'))
       end
 
-      it 'updates progress to failed status', :vcr do
+      it 'updates progress to failed status' do
         expect {
-          described_class.new.perform(invalid_company.id, job_id)
-        }.to raise_error
+          described_class.new.perform(company.id, job_id)
+        }.to raise_error(StandardError)
 
         progress = Rails.cache.read("import_progress_#{job_id}")
         expect(progress).to be_present

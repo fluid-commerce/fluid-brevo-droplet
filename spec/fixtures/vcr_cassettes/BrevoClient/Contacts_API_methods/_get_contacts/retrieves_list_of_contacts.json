@@ -1,0 +1,114 @@
+{
+  "http_interactions": [
+    {
+      "request": {
+        "method": "get",
+        "uri": "https://api.brevo.com/v3/contacts?limit=10&offset=0",
+        "body": {
+          "encoding": "US-ASCII",
+          "string": ""
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:21:19 GMT"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Cf-Ray": [
+            "98c03d871c783c9b-CDG"
+          ],
+          "Vary": [
+            "Origin, Accept-Encoding"
+          ],
+          "X-Xss-Protection": [
+            "0"
+          ],
+          "X-Frame-Options": [
+            "SAMEORIGIN"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=0; includeSubDomains"
+          ],
+          "X-Download-Options": [
+            "noopen"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Etag": [
+            "W/\"9eb-RPC7dYh9PtD5d/6E+yjJrrxcis0\""
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "95"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "b33ce50e-c612-9329-8428-fd7ea266607b"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Sib-Ratelimit-Limit": [
+            "20"
+          ],
+          "X-Sib-Ratelimit-Remaining": [
+            "19"
+          ],
+          "X-Sib-Ratelimit-Reset": [
+            "1"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ]
+        },
+        "body": {
+          "encoding": "ASCII-8BIT",
+          "base64_string": "eyJjb250YWN0cyI6W3siaWQiOjUwLCJlbWFpbEJsYWNrbGlzdGVkIjpmYWxz\nZSwic21zQmxhY2tsaXN0ZWQiOmZhbHNlLCJjcmVhdGVkQXQiOiIyMDI1LTEw\nLTA5VDIxOjIxOjE4LjMxOSswMjowMCIsIm1vZGlmaWVkQXQiOiIyMDI1LTEw\nLTA5VDIxOjIxOjE4LjMxOSswMjowMCIsImVtYWlsIjoidGVzdF92Y3JfY29u\ndGFjdEBleGFtcGxlLmNvbSIsImxpc3RJZHMiOltdLCJsaXN0VW5zdWJzY3Jp\nYmVkIjpudWxsLCJhdHRyaWJ1dGVzIjp7IkxBU1ROQU1FIjoiVXNlciIsIkZJ\nUlNUTkFNRSI6IlRlc3QifX0seyJpZCI6NDksImVtYWlsQmxhY2tsaXN0ZWQi\nOmZhbHNlLCJzbXNCbGFja2xpc3RlZCI6ZmFsc2UsImNyZWF0ZWRBdCI6IjIw\nMjUtMTAtMDlUMjE6MTU6NTkuODMyKzAyOjAwIiwibW9kaWZpZWRBdCI6IjIw\nMjUtMTAtMDlUMjE6MTU6NTkuODMyKzAyOjAwIiwiZW1haWwiOiJpbXBvcnRf\ndGVzdF83ODcyMzI1ZkBleGFtcGxlLmNvbSIsImxpc3RJZHMiOls4XSwibGlz\ndFVuc3Vic2NyaWJlZCI6bnVsbCwiYXR0cmlidXRlcyI6eyJGSVJTVE5BTUUi\nOiJCdWxrIiwiTEFTVE5BTUUiOiJJbXBvcnQifX0seyJpZCI6NDgsImVtYWls\nQmxhY2tsaXN0ZWQiOmZhbHNlLCJzbXNCbGFja2xpc3RlZCI6ZmFsc2UsImNy\nZWF0ZWRBdCI6IjIwMjUtMTAtMDlUMjE6MTU6NTYuOTI2KzAyOjAwIiwibW9k\naWZpZWRBdCI6IjIwMjUtMTAtMDlUMjE6MTU6NTYuOTI2KzAyOjAwIiwiZW1h\naWwiOiJ0ZXN0XzAyMTliNGVlQGV4YW1wbGUuY29tIiwibGlzdElkcyI6W10s\nImxpc3RVbnN1YnNjcmliZWQiOm51bGwsImF0dHJpYnV0ZXMiOnsiTEFTVE5B\nTUUiOiJVc2VyIiwiRklSU1ROQU1FIjoiVGVzdCJ9fSx7ImlkIjo0NywiZW1h\naWxCbGFja2xpc3RlZCI6dHJ1ZSwic21zQmxhY2tsaXN0ZWQiOmZhbHNlLCJj\ncmVhdGVkQXQiOiIyMDI1LTEwLTA5VDIxOjEzOjMwLjgzNyswMjowMCIsIm1v\nZGlmaWVkQXQiOiIyMDI1LTEwLTA5VDIxOjEzOjMwLjgzNyswMjowMCIsImVt\nYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImxpc3RJZHMiOltdLCJsaXN0VW5z\ndWJzY3JpYmVkIjpudWxsLCJhdHRyaWJ1dGVzIjp7fX0seyJpZCI6NDYsImVt\nYWlsQmxhY2tsaXN0ZWQiOmZhbHNlLCJzbXNCbGFja2xpc3RlZCI6ZmFsc2Us\nImNyZWF0ZWRBdCI6IjIwMjUtMTAtMDlUMjE6MTM6MjEuMTM5KzAyOjAwIiwi\nbW9kaWZpZWRBdCI6IjIwMjUtMTAtMDlUMjE6MTM6MjIuMjU3KzAyOjAwIiwi\nZW1haWwiOiJ0ZXN0XzAyYjQ2YTBhQGV4YW1wbGUuY29tIiwibGlzdElkcyI6\nW10sImxpc3RVbnN1YnNjcmliZWQiOm51bGwsImF0dHJpYnV0ZXMiOnsiRklS\nU1ROQU1FIjoiVXBkYXRlZCIsIkxBU1ROQU1FIjoiTmFtZSJ9fSx7ImlkIjo0\nNSwiZW1haWxCbGFja2xpc3RlZCI6ZmFsc2UsInNtc0JsYWNrbGlzdGVkIjpm\nYWxzZSwiY3JlYXRlZEF0IjoiMjAyNS0xMC0wOVQyMToxMzoyMC4xMjIrMDI6\nMDAiLCJtb2RpZmllZEF0IjoiMjAyNS0xMC0wOVQyMToxMzoyMC4xMjIrMDI6\nMDAiLCJlbWFpbCI6InRlc3RfNDk2MzYxMmRAZXhhbXBsZS5jb20iLCJsaXN0\nSWRzIjpbXSwibGlzdFVuc3Vic2NyaWJlZCI6bnVsbCwiYXR0cmlidXRlcyI6\neyJMQVNUTkFNRSI6IlVzZXIiLCJGSVJTVE5BTUUiOiJUZXN0In19LHsiaWQi\nOjQ0LCJlbWFpbEJsYWNrbGlzdGVkIjp0cnVlLCJzbXNCbGFja2xpc3RlZCI6\nZmFsc2UsImNyZWF0ZWRBdCI6IjIwMjUtMTAtMDhUMjI6Mzk6MDAuNjIzKzAy\nOjAwIiwibW9kaWZpZWRBdCI6IjIwMjUtMTAtMDhUMjI6Mzk6MDAuNjIzKzAy\nOjAwIiwiZW1haWwiOiJzdWJhc0BmbHVpZC50ZXN0IiwibGlzdElkcyI6W10s\nImxpc3RVbnN1YnNjcmliZWQiOm51bGwsImF0dHJpYnV0ZXMiOnt9fSx7Imlk\nIjo0MywiZW1haWxCbGFja2xpc3RlZCI6dHJ1ZSwic21zQmxhY2tsaXN0ZWQi\nOmZhbHNlLCJjcmVhdGVkQXQiOiIyMDI1LTEwLTA4VDIyOjM5OjAwLjQwMisw\nMjowMCIsIm1vZGlmaWVkQXQiOiIyMDI1LTEwLTA4VDIyOjM5OjAwLjQwMisw\nMjowMCIsImVtYWlsIjoibmlkb3hheDcxM0B2a3IxLmNvbSIsImxpc3RJZHMi\nOltdLCJsaXN0VW5zdWJzY3JpYmVkIjpudWxsLCJhdHRyaWJ1dGVzIjp7fX0s\neyJpZCI6NDEsImVtYWlsQmxhY2tsaXN0ZWQiOnRydWUsInNtc0JsYWNrbGlz\ndGVkIjpmYWxzZSwiY3JlYXRlZEF0IjoiMjAyNS0xMC0wOFQyMjozOTowMC4w\nOTcrMDI6MDAiLCJtb2RpZmllZEF0IjoiMjAyNS0xMC0wOFQyMjozOTowMC4w\nOTcrMDI6MDAiLCJlbWFpbCI6Im55dWdlbkBmbHVpZC50ZXN0IiwibGlzdElk\ncyI6W10sImxpc3RVbnN1YnNjcmliZWQiOm51bGwsImF0dHJpYnV0ZXMiOnt9\nfSx7ImlkIjo0MiwiZW1haWxCbGFja2xpc3RlZCI6dHJ1ZSwic21zQmxhY2ts\naXN0ZWQiOmZhbHNlLCJjcmVhdGVkQXQiOiIyMDI1LTEwLTA4VDIyOjM5OjAw\nLjI0OCswMjowMCIsIm1vZGlmaWVkQXQiOiIyMDI1LTEwLTA4VDIyOjM5OjAw\nLjI0OCswMjowMCIsImVtYWlsIjoiamFrZS5wYXJlbHRhQGI5OS5jb20iLCJs\naXN0SWRzIjpbXSwibGlzdFVuc3Vic2NyaWJlZCI6bnVsbCwiYXR0cmlidXRl\ncyI6e319XSwiY291bnQiOjE4fQ==\n"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:21:19 GMT"
+    }
+  ],
+  "recorded_with": "VCR 6.3.1"
+}

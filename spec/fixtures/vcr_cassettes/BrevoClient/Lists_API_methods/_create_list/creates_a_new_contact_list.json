@@ -1,0 +1,223 @@
+{
+  "http_interactions": [
+    {
+      "request": {
+        "method": "get",
+        "uri": "https://api.brevo.com/v3/contacts/folders",
+        "body": {
+          "encoding": "US-ASCII",
+          "string": ""
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:21:21 GMT"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Vary": [
+            "Origin, Accept-Encoding"
+          ],
+          "X-Xss-Protection": [
+            "0"
+          ],
+          "X-Frame-Options": [
+            "SAMEORIGIN"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=0; includeSubDomains"
+          ],
+          "X-Download-Options": [
+            "noopen"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Etag": [
+            "W/\"21e-gc3H/Lz/co/Gz70Vuz1fVQUD2HY\""
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "63"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "66f6a0a4-52c5-92ee-98ba-dadb9de81942"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Sib-Ratelimit-Limit": [
+            "20"
+          ],
+          "X-Sib-Ratelimit-Remaining": [
+            "19"
+          ],
+          "X-Sib-Ratelimit-Reset": [
+            "1"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ],
+          "Cf-Ray": [
+            "98c03d97b9a9c13c-AMS"
+          ]
+        },
+        "body": {
+          "encoding": "ASCII-8BIT",
+          "base64_string": "eyJmb2xkZXJzIjpbeyJpZCI6MTIsIm5hbWUiOiJUZXN0IEZvbGRlciA5ZDcw\nZWNkYyIsInVuaXF1ZVN1YnNjcmliZXJzIjowLCJ0b3RhbFN1YnNjcmliZXJz\nIjowLCJ0b3RhbEJsYWNrbGlzdGVkIjowfSx7ImlkIjoxMCwibmFtZSI6IlRl\nc3QgRm9sZGVyIDM3MDRhMzhlIiwidW5pcXVlU3Vic2NyaWJlcnMiOjAsInRv\ndGFsU3Vic2NyaWJlcnMiOjAsInRvdGFsQmxhY2tsaXN0ZWQiOjB9LHsiaWQi\nOjcsIm5hbWUiOiJtYXJrZXRpbmdfYXV0b21hdGlvbiIsInVuaXF1ZVN1YnNj\ncmliZXJzIjowLCJ0b3RhbFN1YnNjcmliZXJzIjowLCJ0b3RhbEJsYWNrbGlz\ndGVkIjowfSx7ImlkIjozLCJuYW1lIjoiRmx1aWRCcmV2b0Ryb3BsZXRDb250\nYWN0cyIsInVuaXF1ZVN1YnNjcmliZXJzIjowLCJ0b3RhbFN1YnNjcmliZXJz\nIjowLCJ0b3RhbEJsYWNrbGlzdGVkIjowfSx7ImlkIjoxLCJuYW1lIjoiWW91\nciBmaXJzdCBmb2xkZXIiLCJ1bmlxdWVTdWJzY3JpYmVycyI6MCwidG90YWxT\ndWJzY3JpYmVycyI6MCwidG90YWxCbGFja2xpc3RlZCI6MH1dLCJjb3VudCI6\nNX0=\n"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:21:22 GMT"
+    },
+    {
+      "request": {
+        "method": "post",
+        "uri": "https://api.brevo.com/v3/contacts/lists",
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"name\":\"Test List VCR\",\"folderId\":12}"
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 201,
+          "message": "Created"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:21:22 GMT"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Content-Length": [
+            "9"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Cf-Ray": [
+            "98c03d9cdf0bf5ba-AMS"
+          ],
+          "Vary": [
+            "Origin, Accept-Encoding"
+          ],
+          "X-Xss-Protection": [
+            "0"
+          ],
+          "X-Frame-Options": [
+            "SAMEORIGIN"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=0; includeSubDomains"
+          ],
+          "X-Download-Options": [
+            "noopen"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Etag": [
+            "W/\"9-8QOrKFS2q+uyOyq1D/dEV/cViHU\""
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "111"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "ffd8ff02-fd03-9ce9-a779-fc6ab9456955"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Sib-Ratelimit-Limit": [
+            "20"
+          ],
+          "X-Sib-Ratelimit-Remaining": [
+            "19"
+          ],
+          "X-Sib-Ratelimit-Reset": [
+            "1"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ]
+        },
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"id\":13}"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:21:23 GMT"
+    }
+  ],
+  "recorded_with": "VCR 6.3.1"
+}

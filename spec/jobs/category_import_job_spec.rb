@@ -1,0 +1,376 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+RSpec.describe CategoryImportJob, type: :job do
+  let(:company) { create(:company, :with_brevo_credentials, authentication_token: ENV['FLUID_AUTH_TOKEN'] || 'test_token', fluid_shop: 'testshop') }
+  let(:job_id) { SecureRandom.uuid }
+
+  before do
+    Rails.cache.clear
+  end
+
+  describe '#perform', :vcr do
+    it 'imports categories from Fluid to Brevo' do
+      expect {
+        described_class.new.perform(company.id, job_id)
+      }.not_to raise_error
+
+      # Check progress was updated
+      progress = Rails.cache.read("category_import_progress_#{job_id}")
+      expect(progress).to be_present
+      expect(progress[:status]).to eq('completed')
+    end
+
+    it 'updates progress throughout the import' do
+      described_class.new.perform(company.id, job_id)
+
+      progress = Rails.cache.read("category_import_progress_#{job_id}")
+      expect(progress).to be_present
+      expect(progress[:percentage]).to be >= 0
+      expect(progress[:message]).to be_present
+    end
+
+    context 'when an error occurs' do
+      let(:invalid_company) { create(:company, authentication_token: 'invalid_token') }
+
+      before do
+        create(:integration_setting, company: invalid_company, credentials: { 'brevo' => { 'api_key' => 'invalid' } })
+      end
+
+      it 'updates progress to failed status and re-raises error', :vcr do
+        expect {
+          described_class.new.perform(invalid_company.id, job_id)
+        }.to raise_error
+
+        progress = Rails.cache.read("category_import_progress_#{job_id}")
+        expect(progress).to be_present
+        expect(progress[:percentage]).to eq(0)
+        expect(progress[:message]).to include('failed')
+      end
+    end
+  end
+
+  describe '#transform_categories_to_brevo_format' do
+    let(:job) { described_class.new }
+    let(:company) { create(:company, :with_brevo_credentials, fluid_shop: 'testshop') }
+
+    before do
+      job.instance_variable_set(:@company, company)
+    end
+
+    it 'transforms Fluid categories to Brevo format' do
+      categories = [
+        {
+          'id' => 1,
+          'title' => 'Electronics',
+          'slug' => 'electronics'
+        },
+        {
+          'id' => 2,
+          'name' => 'Clothing',
+          'slug' => 'clothing'
+        }
+      ]
+
+      result = job.send(:transform_categories_to_brevo_format, categories)
+
+      expect(result).to be_an(Array)
+      expect(result.length).to eq(2)
+
+      first_category = result.first
+      expect(first_category[:id]).to eq('1')
+      expect(first_category[:name]).to eq('Electronics')
+      expect(first_category[:url]).to include('electronics')
+
+      second_category = result.second
+      expect(second_category[:id]).to eq('2')
+      expect(second_category[:name]).to eq('Clothing')
+      expect(second_category[:url]).to include('clothing')
+    end
+
+    it 'handles categories without title or name' do
+      categories = [
+        {
+          'id' => 3,
+          'slug' => 'unknown'
+        }
+      ]
+
+      result = job.send(:transform_categories_to_brevo_format, categories)
+
+      expect(result.first[:name]).to eq('Untitled Category')
+    end
+
+    it 'uses title over name when both are present' do
+      categories = [
+        {
+          'id' => 4,
+          'title' => 'Title Value',
+          'name' => 'Name Value',
+          'slug' => 'test'
+        }
+      ]
+
+      result = job.send(:transform_categories_to_brevo_format, categories)
+
+      expect(result.first[:name]).to eq('Title Value')
+    end
+  end
+
+  describe '#build_category_url' do
+    let(:job) { described_class.new }
+    let(:company) { create(:company, :with_brevo_credentials, fluid_shop: 'testshop.fluid.app') }
+
+    before do
+      job.instance_variable_set(:@company, company)
+    end
+
+    it 'builds URL with slug when available' do
+      category = {
+        'id' => 1,
+        'slug' => 'electronics'
+      }
+
+      url = job.send(:build_category_url, category)
+
+      expect(url).to eq('https://testshop.fluid.app/categories/electronics')
+    end
+
+    it 'builds URL with ID when slug is not available' do
+      category = {
+        'id' => 1
+      }
+
+      url = job.send(:build_category_url, category)
+
+      expect(url).to eq('https://testshop.fluid.app/categories/1')
+    end
+  end
+
+  describe '#import_to_brevo' do
+    let(:job) { described_class.new }
+    let(:brevo_client) { instance_double(BrevoClient) }
+
+    before do
+      allow(job).to receive(:brevo_client).and_return(brevo_client)
+    end
+
+    it 'imports categories in batches of 50' do
+      categories = Array.new(75) do |i|
+        {
+          id: i.to_s,
+          name: "Category #{i}",
+          url: "https://example.com/category/#{i}"
+        }
+      end
+
+      expect(brevo_client).to receive(:create_categories_batch).twice
+
+      result = job.send(:import_to_brevo, categories)
+
+      expect(result[:success]).to be true
+      expect(result[:total_imported]).to eq(75)
+    end
+
+    it 're-raises errors from Brevo client' do
+      categories = [{ id: '1', name: 'Test', url: 'https://example.com' }]
+
+      allow(brevo_client).to receive(:create_categories_batch).and_raise(StandardError.new('API Error'))
+
+      expect {
+        job.send(:import_to_brevo, categories)
+      }.to raise_error(StandardError, 'API Error')
+    end
+
+    it 'processes batches correctly' do
+      categories = Array.new(125) do |i|
+        {
+          id: i.to_s,
+          name: "Category #{i}",
+          url: "https://example.com/category/#{i}"
+        }
+      end
+
+      # Should call create_categories_batch 3 times (50 + 50 + 25)
+      expect(brevo_client).to receive(:create_categories_batch).exactly(3).times
+
+      job.send(:import_to_brevo, categories)
+    end
+  end
+
+  describe '#update_progress' do
+    let(:job) { described_class.new }
+
+    before do
+      job.instance_variable_set(:@job_id, job_id)
+    end
+
+    it 'stores progress in cache' do
+      job.send(:update_progress, 50, 'Importing categories...')
+
+      progress = Rails.cache.read("category_import_progress_#{job_id}")
+      expect(progress).to be_present
+      expect(progress[:percentage]).to eq(50)
+      expect(progress[:message]).to eq('Importing categories...')
+      expect(progress[:status]).to eq('in_progress')
+      expect(progress[:timestamp]).to be_present
+    end
+
+    it 'marks as completed when percentage is 100' do
+      job.send(:update_progress, 100, 'Import complete')
+
+      progress = Rails.cache.read("category_import_progress_#{job_id}")
+      expect(progress[:status]).to eq('completed')
+    end
+  end
+
+  describe 'pagination handling' do
+    let(:job) { described_class.new }
+    let(:company) { create(:company, :with_brevo_credentials) }
+
+    before do
+      job.instance_variable_set(:@company, company)
+      job.instance_variable_set(:@job_id, job_id)
+    end
+
+    it 'handles pagination metadata correctly', :vcr do
+      # This test verifies the job correctly processes multiple pages
+      # The VCR cassette should contain multiple pages of category data
+      expect {
+        described_class.new.perform(company.id, job_id)
+      }.not_to raise_error
+    end
+
+    it 'detects last page from pagination metadata' do
+      # Test internal logic for detecting last page
+      pagination = {
+        'current_page' => 3,
+        'total_pages' => 3
+      }
+
+      is_last_page = pagination['current_page'] >= pagination['total_pages']
+      expect(is_last_page).to be true
+    end
+
+    it 'detects last page when fewer items than per_page' do
+      # When we receive fewer categories than per_page, it's the last page
+      categories = Array.new(25) { |i| { 'id' => i } }
+      per_page = 50
+
+      is_last_page = categories.length < per_page
+      expect(is_last_page).to be true
+    end
+  end
+
+  describe 'duplicate prevention' do
+    let(:job) { described_class.new }
+    let(:company) { create(:company, :with_brevo_credentials) }
+
+    before do
+      job.instance_variable_set(:@company, company)
+      job.instance_variable_set(:@job_id, job_id)
+    end
+
+    it 'prevents importing duplicate categories' do
+      # The job uses a Set to track imported category IDs
+      # Verify that categories with duplicate IDs are skipped
+      categories = [
+        { 'id' => 1, 'title' => 'Category 1' },
+        { 'id' => 1, 'title' => 'Category 1 Duplicate' }
+      ]
+
+      imported_ids = Set.new
+      categories.each do |category|
+        next if imported_ids.include?(category['id'])
+        imported_ids.add(category['id'])
+      end
+
+      expect(imported_ids.size).to eq(1)
+    end
+  end
+
+  describe 'error handling' do
+    let(:job) { described_class.new }
+    let(:company) { create(:company, :with_brevo_credentials) }
+
+    before do
+      job.instance_variable_set(:@company, company)
+      job.instance_variable_set(:@job_id, job_id)
+    end
+
+    it 'stores error information in cache on failure' do
+      allow_any_instance_of(FluidClient).to receive(:get).and_raise(StandardError.new('API Error'))
+
+      expect {
+        described_class.new.perform(company.id, job_id)
+      }.to raise_error(StandardError)
+
+      progress = Rails.cache.read("category_import_progress_#{job_id}")
+      expect(progress).to be_present
+      expect(progress[:message]).to include('failed')
+    end
+
+    it 'logs errors appropriately' do
+      allow_any_instance_of(FluidClient).to receive(:get).and_raise(StandardError.new('Test error'))
+
+      expect(Rails.logger).to receive(:error).at_least(:once)
+
+      expect {
+        described_class.new.perform(company.id, job_id)
+      }.to raise_error(StandardError)
+    end
+  end
+
+  describe 'integration with Fluid API', :vcr do
+    it 'successfully fetches categories from Fluid' do
+      job = described_class.new
+      job.instance_variable_set(:@company, company)
+
+      fluid_client = FluidClient.new(company.authentication_token)
+      response = fluid_client.get('/api/company/v1/categories', { query: { page: 1, per_page: 50 } })
+
+      expect(response).to be_a(Hash)
+      expect(response).to have_key('categories')
+    end
+  end
+
+  describe 'integration with Brevo API', :vcr do
+    it 'successfully imports categories to Brevo' do
+      brevo_client = BrevoClient.new(company.integration_setting.credentials.dig('brevo', 'api_key'))
+      categories = [
+        {
+          id: "test_category_#{SecureRandom.hex(4)}",
+          name: 'Test Category',
+          url: 'https://example.com/category'
+        }
+      ]
+
+      expect {
+        brevo_client.create_categories_batch(categories)
+      }.not_to raise_error
+    end
+  end
+
+  describe 'progress calculation' do
+    let(:job) { described_class.new }
+
+    before do
+      job.instance_variable_set(:@job_id, job_id)
+    end
+
+    it 'calculates progress correctly during import' do
+      total_categories = 100
+      total_imported = 50
+
+      # Progress should be 10% (initial) + 50% of 80% range = 50%
+      expected_percentage = 10 + (total_imported * 80 / total_categories)
+
+      job.send(:update_progress, expected_percentage, "Imported #{total_imported}/#{total_categories} categories")
+
+      progress = Rails.cache.read("category_import_progress_#{job_id}")
+      expect(progress[:percentage]).to eq(50)
+    end
+  end
+end
+

@@ -1,0 +1,93 @@
+{
+  "http_interactions": [
+    {
+      "request": {
+        "method": "post",
+        "uri": "https://api.brevo.com/v3/orders/status/batch",
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"orders\":[{\"id\":\"test_order_vcr_123\",\"createdAt\":\"2025-01-01T12:00:00Z\",\"updatedAt\":\"2025-01-01T12:00:00Z\",\"status\":\"pending\",\"amount\":99.99,\"identifiers\":{\"email_id\":\"test@example.com\"},\"products\":[{\"productId\":\"1\",\"quantity\":1,\"price\":99.99}]}],\"historical\":true}"
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 202,
+          "message": "Accepted"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:21:27 GMT"
+          ],
+          "Content-Type": [
+            "text/plain; charset=utf-8"
+          ],
+          "Content-Length": [
+            "21"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Cf-Ray": [
+            "98c03dba0972f0d7-CDG"
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "18"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "58966c79-2842-9e74-ba63-8a0f3e8367bd"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Sib-Ratelimit-Limit": [
+            "100"
+          ],
+          "X-Sib-Ratelimit-Remaining": [
+            "97"
+          ],
+          "X-Sib-Ratelimit-Reset": [
+            "2313"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ]
+        },
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"batch_id\":25226327}"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:21:28 GMT"
+    }
+  ],
+  "recorded_with": "VCR 6.3.1"
+}

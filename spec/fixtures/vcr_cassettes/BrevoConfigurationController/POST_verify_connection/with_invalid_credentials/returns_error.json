@@ -1,0 +1,84 @@
+{
+  "http_interactions": [
+    {
+      "request": {
+        "method": "get",
+        "uri": "https://api.brevo.com/v3/contacts/lists",
+        "body": {
+          "encoding": "US-ASCII",
+          "string": ""
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 401,
+          "message": "Unauthorized"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:40:25 GMT"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Content-Length": [
+            "50"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Cf-Ray": [
+            "98c05983bda2f5c3-AMS"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "f55166e2-4086-9989-a6ef-ec50fbc6e181"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "5"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ]
+        },
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"message\":\"Key not found\",\"code\":\"unauthorized\"}\n"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:40:28 GMT"
+    }
+  ],
+  "recorded_with": "VCR 6.3.1"
+}

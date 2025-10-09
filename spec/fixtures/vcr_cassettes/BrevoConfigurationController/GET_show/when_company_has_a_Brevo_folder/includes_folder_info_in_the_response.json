@@ -1,0 +1,93 @@
+{
+  "http_interactions": [
+    {
+      "request": {
+        "method": "get",
+        "uri": "https://api.brevo.com/v3/contacts/folders/123",
+        "body": {
+          "encoding": "US-ASCII",
+          "string": ""
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 404,
+          "message": "Not Found"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:40:21 GMT"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "58"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "e49c57fa-c561-9106-953d-53cf5f18510f"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Sib-Ratelimit-Limit": [
+            "20"
+          ],
+          "X-Sib-Ratelimit-Remaining": [
+            "19"
+          ],
+          "X-Sib-Ratelimit-Reset": [
+            "1"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ],
+          "Cf-Ray": [
+            "98c059674aa53cab-CDG"
+          ]
+        },
+        "body": {
+          "encoding": "ASCII-8BIT",
+          "base64_string": "eyJjb2RlIjoiZG9jdW1lbnRfbm90X2ZvdW5kIiwibWVzc2FnZSI6IkZvbGRl\nciBJRCBkb2VzIG5vdCBleGlzdCJ9Cg==\n"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:40:23 GMT"
+    }
+  ],
+  "recorded_with": "VCR 6.3.1"
+}

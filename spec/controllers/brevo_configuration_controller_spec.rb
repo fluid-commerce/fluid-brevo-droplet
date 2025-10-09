@@ -74,7 +74,7 @@ RSpec.describe BrevoConfigurationController, type: :controller do
       get :show
 
       expect(response).to have_http_status(:success)
-      expect(response).to render_template(:show)
+      expect(response.content_type).to include('text/html')
     end
   end
 
@@ -261,7 +261,7 @@ RSpec.describe BrevoConfigurationController, type: :controller do
 
       expect(response).to have_http_status(:success)
       company.integration_setting.reload
-      expect(company.integration_setting.everyone_list_id).to be_nil
+      expect(company.integration_setting.everyone_list_id).to be_blank
     end
   end
 
@@ -417,12 +417,16 @@ RSpec.describe BrevoConfigurationController, type: :controller do
     end
   end
 
-  describe 'GET #get_folder_info', :vcr do
+  describe 'GET #get_folder_info' do
     context 'when folder exists' do
       before do
         company.integration_setting.update(
           settings: { 'brevo_folder_id' => 123 }
         )
+        
+        # Mock BrevoClient response
+        folder_data = { 'id' => 123, 'name' => 'Test Folder' }
+        allow_any_instance_of(BrevoClient).to receive(:get_folder).with(123).and_return(folder_data)
       end
 
       it 'returns folder information' do

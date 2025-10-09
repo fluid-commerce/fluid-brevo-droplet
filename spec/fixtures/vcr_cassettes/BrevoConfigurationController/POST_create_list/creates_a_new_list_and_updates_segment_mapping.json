@@ -1,0 +1,311 @@
+{
+  "http_interactions": [
+    {
+      "request": {
+        "method": "get",
+        "uri": "https://api.brevo.com/v3/contacts/folders",
+        "body": {
+          "encoding": "US-ASCII",
+          "string": ""
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:40:27 GMT"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Vary": [
+            "Origin, Accept-Encoding"
+          ],
+          "X-Xss-Protection": [
+            "0"
+          ],
+          "X-Frame-Options": [
+            "SAMEORIGIN"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=0; includeSubDomains"
+          ],
+          "X-Download-Options": [
+            "noopen"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Etag": [
+            "W/\"281-ZPt9YO1ueUhYniM6909DneeQZIE\""
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "15"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "f24a02d0-d9fb-9dae-8ec8-2d72113a631e"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Sib-Ratelimit-Limit": [
+            "20"
+          ],
+          "X-Sib-Ratelimit-Remaining": [
+            "19"
+          ],
+          "X-Sib-Ratelimit-Reset": [
+            "1"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ],
+          "Cf-Ray": [
+            "98c0599088f5fba8-AMS"
+          ]
+        },
+        "body": {
+          "encoding": "ASCII-8BIT",
+          "base64_string": "eyJmb2xkZXJzIjpbeyJpZCI6MTQsIm5hbWUiOiJUZXN0IEZvbGRlciBWQ1Ii\nLCJ1bmlxdWVTdWJzY3JpYmVycyI6MCwidG90YWxTdWJzY3JpYmVycyI6MCwi\ndG90YWxCbGFja2xpc3RlZCI6MH0seyJpZCI6MTIsIm5hbWUiOiJUZXN0IEZv\nbGRlciA5ZDcwZWNkYyIsInVuaXF1ZVN1YnNjcmliZXJzIjowLCJ0b3RhbFN1\nYnNjcmliZXJzIjowLCJ0b3RhbEJsYWNrbGlzdGVkIjowfSx7ImlkIjoxMCwi\nbmFtZSI6IlRlc3QgRm9sZGVyIDM3MDRhMzhlIiwidW5pcXVlU3Vic2NyaWJl\ncnMiOjAsInRvdGFsU3Vic2NyaWJlcnMiOjAsInRvdGFsQmxhY2tsaXN0ZWQi\nOjB9LHsiaWQiOjcsIm5hbWUiOiJtYXJrZXRpbmdfYXV0b21hdGlvbiIsInVu\naXF1ZVN1YnNjcmliZXJzIjowLCJ0b3RhbFN1YnNjcmliZXJzIjowLCJ0b3Rh\nbEJsYWNrbGlzdGVkIjowfSx7ImlkIjozLCJuYW1lIjoiRmx1aWRCcmV2b0Ry\nb3BsZXRDb250YWN0cyIsInVuaXF1ZVN1YnNjcmliZXJzIjowLCJ0b3RhbFN1\nYnNjcmliZXJzIjowLCJ0b3RhbEJsYWNrbGlzdGVkIjowfSx7ImlkIjoxLCJu\nYW1lIjoiWW91ciBmaXJzdCBmb2xkZXIiLCJ1bmlxdWVTdWJzY3JpYmVycyI6\nMCwidG90YWxTdWJzY3JpYmVycyI6MCwidG90YWxCbGFja2xpc3RlZCI6MH1d\nLCJjb3VudCI6Nn0=\n"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:40:30 GMT"
+    },
+    {
+      "request": {
+        "method": "post",
+        "uri": "https://api.brevo.com/v3/contacts/lists",
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"name\":\"Test List\",\"folderId\":3}"
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 201,
+          "message": "Created"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:40:28 GMT"
+          ],
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Content-Length": [
+            "9"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Cf-Ray": [
+            "98c059961b03f148-CDG"
+          ],
+          "Vary": [
+            "Origin, Accept-Encoding"
+          ],
+          "X-Xss-Protection": [
+            "0"
+          ],
+          "X-Frame-Options": [
+            "SAMEORIGIN"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=0; includeSubDomains"
+          ],
+          "X-Download-Options": [
+            "noopen"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Etag": [
+            "W/\"9-cLKC9NU7d5duKTB2EyEYSLHM6Qc\""
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "97"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "30b9a214-60ac-95d3-8f08-eeac6e683a7c"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Sib-Ratelimit-Limit": [
+            "20"
+          ],
+          "X-Sib-Ratelimit-Remaining": [
+            "19"
+          ],
+          "X-Sib-Ratelimit-Reset": [
+            "1"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ]
+        },
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"id\":15}"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:40:31 GMT"
+    },
+    {
+      "request": {
+        "method": "get",
+        "uri": "https://api.brevo.com/v3/contacts/lists",
+        "body": {
+          "encoding": "US-ASCII",
+          "string": ""
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "headers": {
+          "Date": [
+            "Thu, 09 Oct 2025 19:40:29 GMT"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "70"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "934a279d-5c66-9ba8-938a-82cd62471502"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Sib-Ratelimit-Limit": [
+            "20"
+          ],
+          "X-Sib-Ratelimit-Remaining": [
+            "19"
+          ],
+          "X-Sib-Ratelimit-Reset": [
+            "1"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ],
+          "Cf-Ray": [
+            "98c0599b797ef5b1-AMS"
+          ]
+        },
+        "body": {
+          "encoding": "ASCII-8BIT",
+          "base64_string": "eyJsaXN0cyI6W3siaWQiOjE1LCJuYW1lIjoiVGVzdCBMaXN0IiwiZm9sZGVy\nSWQiOjMsInVuaXF1ZVN1YnNjcmliZXJzIjowLCJ0b3RhbEJsYWNrbGlzdGVk\nIjowLCJ0b3RhbFN1YnNjcmliZXJzIjowfSx7ImlkIjo4LCJuYW1lIjoiaWRl\nbnRpZmllZF9jb250YWN0cyIsImZvbGRlcklkIjo3LCJ1bmlxdWVTdWJzY3Jp\nYmVycyI6MiwidG90YWxCbGFja2xpc3RlZCI6MCwidG90YWxTdWJzY3JpYmVy\ncyI6MH0seyJpZCI6NywibmFtZSI6IlJlcCBsaXN0IiwiZm9sZGVySWQiOjMs\nInVuaXF1ZVN1YnNjcmliZXJzIjowLCJ0b3RhbEJsYWNrbGlzdGVkIjowLCJ0\nb3RhbFN1YnNjcmliZXJzIjowfSx7ImlkIjo0LCJuYW1lIjoiRXZlcnlvbmUg\nTGlzdCIsImZvbGRlcklkIjozLCJ1bmlxdWVTdWJzY3JpYmVycyI6MywidG90\nYWxCbGFja2xpc3RlZCI6MCwidG90YWxTdWJzY3JpYmVycyI6MH0seyJpZCI6\nMiwibmFtZSI6IllvdXIgZmlyc3QgbGlzdCIsImZvbGRlcklkIjoxLCJ1bmlx\ndWVTdWJzY3JpYmVycyI6MSwidG90YWxCbGFja2xpc3RlZCI6MCwidG90YWxT\ndWJzY3JpYmVycyI6MH1dLCJjb3VudCI6NX0K\n"
+        }
+      },
+      "recorded_at": "Thu, 09 Oct 2025 19:40:32 GMT"
+    }
+  ],
+  "recorded_with": "VCR 6.3.1"
+}

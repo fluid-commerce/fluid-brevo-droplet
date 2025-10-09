@@ -10,7 +10,37 @@ RSpec.describe ProductImportJob, type: :job do
     Rails.cache.clear
   end
 
-  describe '#perform', :vcr do
+  describe '#perform' do
+    let(:fluid_response) do
+      {
+        'products' => [
+          {
+            'id' => 1,
+            'title' => 'Test Product',
+            'slug' => 'test-product',
+            'price' => 99.99,
+            'in_stock' => true,
+            'variants' => [{ 'track_quantity' => true, 'inventory_quantity' => 10 }]
+          }
+        ],
+        'meta' => {
+          'pagination' => {
+            'current_page' => 1,
+            'total_pages' => 1,
+            'total_count' => 1
+          }
+        }
+      }
+    end
+
+    before do
+      # Mock Fluid API response
+      allow_any_instance_of(FluidClient).to receive(:get).and_return(fluid_response)
+      
+      # Mock Brevo API response
+      allow_any_instance_of(BrevoClient).to receive(:create_products_batch).and_return({})
+    end
+
     it 'imports products from Fluid to Brevo' do
       expect {
         described_class.new.perform(company.id, job_id)
@@ -32,30 +62,32 @@ RSpec.describe ProductImportJob, type: :job do
 
     context 'when no products are found' do
       before do
-        # Mock empty response - this would need to be done via VCR cassette
-        # or by stubbing the FluidClient
+        allow_any_instance_of(FluidClient).to receive(:get).and_return({
+          'products' => [],
+          'meta' => { 'pagination' => { 'current_page' => 1, 'total_pages' => 1, 'total_count' => 0 } }
+        })
       end
 
-      it 'handles empty product list gracefully', :vcr do
-        # This test would need a VCR cassette with no products
-        # For now, just verify the job completes
+      it 'handles empty product list gracefully' do
         expect {
           described_class.new.perform(company.id, job_id)
         }.not_to raise_error
+        
+        final_result = Rails.cache.read("import_result_#{job_id}")
+        expect(final_result).to be_present
+        expect(final_result[:message]).to include('No products')
       end
     end
 
     context 'when an error occurs' do
-      let(:invalid_company) { create(:company, authentication_token: 'invalid_token') }
-
       before do
-        create(:integration_setting, company: invalid_company, credentials: { 'brevo' => { 'api_key' => 'invalid' } })
+        allow_any_instance_of(FluidClient).to receive(:get).and_raise(StandardError.new('API Error'))
       end
 
-      it 'updates progress to failed status and re-raises error', :vcr do
+      it 'updates progress to failed status and re-raises error' do
         expect {
-          described_class.new.perform(invalid_company.id, job_id)
-        }.to raise_error
+          described_class.new.perform(company.id, job_id)
+        }.to raise_error(StandardError)
 
         final_result = Rails.cache.read("import_result_#{job_id}")
         expect(final_result).to be_present
@@ -313,20 +345,33 @@ RSpec.describe ProductImportJob, type: :job do
   end
 
   describe 'pagination handling' do
-    let(:job) { described_class.new }
-    let(:company) { create(:company, :with_brevo_credentials) }
-
-    before do
-      job.instance_variable_set(:@company, company)
-      job.instance_variable_set(:@job_id, job_id)
+    let(:fluid_response_page1) do
+      {
+        'products' => Array.new(50) { |i| { 'id' => i, 'title' => "Product #{i}", 'in_stock' => true, 'variants' => [] } },
+        'meta' => { 'pagination' => { 'current_page' => 1, 'total_pages' => 2, 'total_count' => 75 } }
+      }
     end
 
-    it 'handles pagination metadata correctly', :vcr do
-      # This test verifies the job correctly processes multiple pages
-      # The VCR cassette should contain multiple pages of product data
+    let(:fluid_response_page2) do
+      {
+        'products' => Array.new(25) { |i| { 'id' => i + 50, 'title' => "Product #{i + 50}", 'in_stock' => true, 'variants' => [] } },
+        'meta' => { 'pagination' => { 'current_page' => 2, 'total_pages' => 2, 'total_count' => 75 } }
+      }
+    end
+
+    before do
+      allow_any_instance_of(FluidClient).to receive(:get).and_return(fluid_response_page1, fluid_response_page2)
+      allow_any_instance_of(BrevoClient).to receive(:create_products_batch).and_return({})
+    end
+
+    it 'handles pagination metadata correctly' do
       expect {
         described_class.new.perform(company.id, job_id)
       }.not_to raise_error
+      
+      final_result = Rails.cache.read("import_result_#{job_id}")
+      expect(final_result).to be_present
+      expect(final_result[:total_imported]).to eq(75)
     end
   end
 

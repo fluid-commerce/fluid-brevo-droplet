@@ -7,6 +7,10 @@ class FluidClient
 
   base_uri Setting.fluid_api.base_url
   format :json
+  
+  # Configure timeouts to prevent hanging requests
+  default_timeout 30  # 30 seconds timeout (default)
+  open_timeout 10      # 10 seconds connection timeout
 
   Error                 = Class.new(StandardError)
   AuthenticationError   = Class.new(Error)
@@ -21,6 +25,16 @@ class FluidClient
 
   def get(path, options = {})
     handle_response(@http.get(path, format_options(options)))
+  end
+
+  def get_with_timeout(path, options = {}, timeout = nil)
+    if timeout
+      # Use HTTParty's timeout option for this specific request
+      options[:timeout] = timeout
+      handle_response(@http.get(path, format_options(options)))
+    else
+      get(path, options)
+    end
   end
 
   def post(path, options = {})

@@ -338,6 +338,51 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   };
 
 
+  // Improved polling with exponential backoff
+  const pollImportProgress = (jobId: string, onComplete: (message: string, isSuccess: boolean) => void) => {
+    const startTime = Date.now();
+    const maxPollingTime = 10 * 60 * 1000; // 10 minutes timeout
+    let pollAttempts = 0;
+    const maxAttempts = 50; // Maximum number of polling attempts
+    
+    const checkProgress = async () => {
+      try {
+        pollAttempts++;
+        
+        // Check if we've exceeded the timeout or max attempts
+        if (Date.now() - startTime > maxPollingTime || pollAttempts > maxAttempts) {
+          onComplete('Import timeout - please check the status manually', false);
+          return;
+        }
+        
+        const progressResponse = await fetch(`/brevo/import_progress?job_id=${jobId}`);
+        const progressData = await progressResponse.json();
+        
+        if (progressResponse.ok && progressData.success && progressData.progress) {
+          const progress = progressData.progress;
+          
+          if (progress.status === 'completed' || progress.status === 'failed') {
+            onComplete(progress.message, progress.status === 'completed');
+            return; // Stop checking
+          }
+        }
+        
+        // Exponential backoff: start with 2s, max 30s, increase by 1.5x each time
+        const baseInterval = 2000;
+        const maxInterval = 30000;
+        const pollInterval = Math.min(baseInterval * Math.pow(1.5, pollAttempts - 1), maxInterval);
+        
+        // If not completed, check again with exponential backoff
+        setTimeout(checkProgress, pollInterval);
+      } catch (error) {
+        onComplete('Failed to check import progress', false);
+      }
+    };
+    
+    // Start checking after 2 seconds
+    setTimeout(checkProgress, 2000);
+  };
+
   const handleSyncSegment = async (segment: string) => {
     if (isSyncingSegment) return;
     
@@ -366,8 +411,20 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
       if (response.ok && data.success) {
         // Check for actual progress and completion
         if (data.job_id) {
+          const startTime = Date.now();
+          const maxPollingTime = 10 * 60 * 1000; // 10 minutes timeout
+          const pollInterval = 2000; // 2 seconds
+          
           const checkProgress = async () => {
             try {
+              // Check if we've exceeded the timeout
+              if (Date.now() - startTime > maxPollingTime) {
+                setToastNotification(null);
+                setIsSyncingSegment(null);
+                setFlashMessage({ type: 'error', message: 'Import timeout - please check the status manually' });
+                return;
+              }
+              
               const progressResponse = await fetch(`/brevo/import_progress?job_id=${data.job_id}`);
               const progressData = await progressResponse.json();
               
@@ -389,17 +446,17 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
               }
               
               // If not completed, check again in 2 seconds
-              setTimeout(checkProgress, 2000);
+              setTimeout(checkProgress, pollInterval);
             } catch (error) {
               // Fallback on error
               setToastNotification(null);
               setIsSyncingSegment(null);
-              setFlashMessage({ type: 'success', message: `Customer import completed for ${segment.replace('_', ' ')} customers!` });
+              setFlashMessage({ type: 'error', message: 'Failed to check import progress' });
             }
           };
           
           // Start checking after 2 seconds
-          setTimeout(checkProgress, 2000);
+          setTimeout(checkProgress, pollInterval);
         } else {
           // No job ID, immediate completion
           setToastNotification(null);
@@ -443,13 +500,60 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
       const data = await response.json();
       
       if (response.ok && data.success) {
-        // Simple timeout approach - let the toast handle the visual feedback
-        // The job will complete in the background
-        setTimeout(() => {
+        // Check for actual progress and completion
+        if (data.job_id) {
+          const startTime = Date.now();
+          const maxPollingTime = 10 * 60 * 1000; // 10 minutes timeout
+          const pollInterval = 2000; // 2 seconds
+          
+          const checkProgress = async () => {
+            try {
+              // Check if we've exceeded the timeout
+              if (Date.now() - startTime > maxPollingTime) {
+                setToastNotification(null);
+                setIsSyncingSegment(null);
+                setFlashMessage({ type: 'error', message: 'Import timeout - please check the status manually' });
+                return;
+              }
+              
+              const progressResponse = await fetch(`/brevo/import_progress?job_id=${data.job_id}`);
+              const progressData = await progressResponse.json();
+              
+              if (progressResponse.ok && progressData.success && progressData.progress) {
+                const progress = progressData.progress;
+                
+                if (progress.status === 'completed' || progress.status === 'failed') {
+                  // Clear toast notification
+                  setToastNotification(null);
+                  
+                  setIsSyncingSegment(null);
+                  if (progress.status === 'completed') {
+                    setFlashMessage({ type: 'success', message: progress.message });
+                  } else {
+                    setFlashMessage({ type: 'error', message: progress.message });
+                  }
+                  return; // Stop checking
+                }
+              }
+              
+              // If not completed, check again in 2 seconds
+              setTimeout(checkProgress, pollInterval);
+            } catch (error) {
+              // Fallback on error
+              setToastNotification(null);
+              setIsSyncingSegment(null);
+              setFlashMessage({ type: 'error', message: 'Failed to check import progress' });
+            }
+          };
+          
+          // Start checking after 2 seconds
+          setTimeout(checkProgress, pollInterval);
+        } else {
+          // No job ID, immediate completion
           setToastNotification(null);
           setIsSyncingSegment(null);
-          setFlashMessage({ type: 'success', message: 'Product import completed successfully!' });
-        }, 10000); // 10 second timeout
+          setFlashMessage({ type: 'success', message: data.message || 'Product import completed!' });
+        }
       } else {
         setToastNotification(null);
         setFlashMessage({ type: 'error', message: data.error || 'Failed to start product import' });

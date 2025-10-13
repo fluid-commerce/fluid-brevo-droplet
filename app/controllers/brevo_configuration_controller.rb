@@ -376,7 +376,7 @@ class BrevoConfigurationController < ApplicationController
             success: true, 
             progress: { 
               percentage: 0, 
-              message: 'Importing contacts...', 
+              message: 'Importing data...', 
               status: 'in_progress' 
             } 
           } }

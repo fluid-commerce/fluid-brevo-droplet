@@ -18,17 +18,45 @@ class ProductImportJob < ApplicationJob
       # Import products page by page
       page = 1
       per_page = 50
+      
+      # Extended timeout for product fetching (may be slow in local environment)
+      # Production environment should be faster, but this provides safety
+      product_fetch_timeout = 60
       total_imported = 0
       total_products = nil
       imported_product_ids = Set.new
       
       loop do
-        Rails.logger.info "Fetching products page #{page}..."
+        Rails.logger.info "Fetching products page #{page} (per_page: #{per_page})..."
         # Fetch products for this page with timeout
         start_time = Time.current
-        products_response = fluid_client.get("/api/company/v1/products", { query: { page: page, per_page: per_page } })
-        api_time = Time.current - start_time
-        Rails.logger.info "Fluid API call took #{api_time.round(2)}s"
+        begin
+          # Use extended timeout for product fetching (may be slow in local environment)
+          products_response = fluid_client.get_with_timeout("/api/company/v1/products", { query: { page: page, per_page: per_page } }, product_fetch_timeout)
+          api_time = Time.current - start_time
+          Rails.logger.info "Fluid API call took #{api_time.round(2)}s"
+          
+          # Warn if API call is taking too long
+          if api_time > 30
+            Rails.logger.warn "Fluid API call took #{api_time.round(2)}s (slow response detected)"
+          end
+        rescue Net::ReadTimeout, Net::OpenTimeout => e
+          Rails.logger.error "Timeout fetching products page #{page}: #{e.message}"
+          # Retry once for timeout errors
+          Rails.logger.info "Retrying page #{page} after timeout..."
+          sleep(2) # Wait 2 seconds before retry
+          begin
+            products_response = fluid_client.get_with_timeout("/api/company/v1/products", { query: { page: page, per_page: per_page } }, product_fetch_timeout)
+            api_time = Time.current - start_time
+            Rails.logger.info "Retry successful, Fluid API call took #{api_time.round(2)}s"
+          rescue => retry_error
+            Rails.logger.error "Retry also failed: #{retry_error.message}"
+            raise "Timeout fetching products from Fluid API after retry: #{retry_error.message}"
+          end
+        rescue FluidClient::APIError => e
+          Rails.logger.error "API error fetching products page #{page}: #{e.message}"
+          raise "Fluid API error: #{e.message}"
+        end
         
         products = products_response['products'] || []
         Rails.logger.info "Received #{products.length} products from Fluid API"
@@ -90,6 +118,8 @@ class ProductImportJob < ApplicationJob
         # Break if we've reached the last page
         break if is_last_page
         
+        # Small delay between requests to avoid overwhelming the API
+        sleep(0.5)
         page += 1
       end
       

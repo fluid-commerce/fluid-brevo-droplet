@@ -157,9 +157,9 @@ class BrevoClient
     make_request(:delete, "/contacts/folders/#{folder_id}")
   end
 
-  # Attributes API methods
-  def create_attribute(attribute_params)
-    make_request(:post, '/contacts/attributes', body: attribute_params.to_json)
+
+  def create_attribute_with_category(attribute_category, attribute_name, attribute_params)
+    make_request(:post, "/contacts/attributes/#{attribute_category}/#{attribute_name}", body: attribute_params.to_json)
   end
 
   def get_attributes

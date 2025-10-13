@@ -1,0 +1,172 @@
+{
+  "http_interactions": [
+    {
+      "request": {
+        "method": "get",
+        "uri": "https://api.brevo.com/v3/contacts/lists",
+        "body": {
+          "encoding": "US-ASCII",
+          "string": ""
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 200,
+          "message": "OK"
+        },
+        "headers": {
+          "Date": [
+            "Mon, 13 Oct 2025 20:27:08 GMT"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "73"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "ce168e42-7d7f-9d89-9ea9-902b778a46d2"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Sib-Ratelimit-Limit": [
+            "20"
+          ],
+          "X-Sib-Ratelimit-Remaining": [
+            "19"
+          ],
+          "X-Sib-Ratelimit-Reset": [
+            "1"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ],
+          "Cf-Ray": [
+            "98e1936ecfd804aa-CDG"
+          ]
+        },
+        "body": {
+          "encoding": "ASCII-8BIT",
+          "base64_string": "eyJsaXN0cyI6W3siaWQiOjE1LCJuYW1lIjoiVGVzdCBMaXN0IiwiZm9sZGVy\nSWQiOjMsInVuaXF1ZVN1YnNjcmliZXJzIjowLCJ0b3RhbEJsYWNrbGlzdGVk\nIjowLCJ0b3RhbFN1YnNjcmliZXJzIjowfSx7ImlkIjo4LCJuYW1lIjoiaWRl\nbnRpZmllZF9jb250YWN0cyIsImZvbGRlcklkIjo3LCJ1bmlxdWVTdWJzY3Jp\nYmVycyI6MiwidG90YWxCbGFja2xpc3RlZCI6MCwidG90YWxTdWJzY3JpYmVy\ncyI6MH0seyJpZCI6NywibmFtZSI6IlJlcCBsaXN0IiwiZm9sZGVySWQiOjMs\nInVuaXF1ZVN1YnNjcmliZXJzIjowLCJ0b3RhbEJsYWNrbGlzdGVkIjowLCJ0\nb3RhbFN1YnNjcmliZXJzIjowfSx7ImlkIjo0LCJuYW1lIjoiRXZlcnlvbmUg\nTGlzdCIsImZvbGRlcklkIjozLCJ1bmlxdWVTdWJzY3JpYmVycyI6MywidG90\nYWxCbGFja2xpc3RlZCI6MCwidG90YWxTdWJzY3JpYmVycyI6MH0seyJpZCI6\nMiwibmFtZSI6IllvdXIgZmlyc3QgbGlzdCIsImZvbGRlcklkIjoxLCJ1bmlx\ndWVTdWJzY3JpYmVycyI6MSwidG90YWxCbGFja2xpc3RlZCI6MCwidG90YWxT\ndWJzY3JpYmVycyI6MH1dLCJjb3VudCI6NX0K\n"
+        }
+      },
+      "recorded_at": "Mon, 13 Oct 2025 20:27:08 GMT"
+    },
+    {
+      "request": {
+        "method": "post",
+        "uri": "https://api.brevo.com/v3/ecommerce/activate",
+        "body": {
+          "encoding": "UTF-8",
+          "string": ""
+        },
+        "headers": {
+          "Api-Key": [
+            "<BREVO_API_KEY>"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Accept": [
+            "application/json"
+          ],
+          "Accept-Encoding": [
+            "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"
+          ],
+          "User-Agent": [
+            "Ruby"
+          ]
+        }
+      },
+      "response": {
+        "status": {
+          "code": 400,
+          "message": "Bad Request"
+        },
+        "headers": {
+          "Date": [
+            "Mon, 13 Oct 2025 20:27:08 GMT"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Content-Length": [
+            "80"
+          ],
+          "Connection": [
+            "keep-alive"
+          ],
+          "Cf-Ray": [
+            "98e19374685abf49-WAW"
+          ],
+          "Access-Control-Allow-Credentials": [
+            "true"
+          ],
+          "Sib-Request-Id": [
+            "16da04a1-c3f5-9b7f-b1e6-9272ed93fa2f"
+          ],
+          "Access-Control-Allow-Origin": [
+            "*"
+          ],
+          "Access-Control-Allow-Headers": [
+            "*"
+          ],
+          "Access-Control-Allow-Methods": [
+            "PUT, POST, GET, DELETE, PATCH, OPTIONS"
+          ],
+          "X-Envoy-Upstream-Service-Time": [
+            "16"
+          ],
+          "Cf-Cache-Status": [
+            "DYNAMIC"
+          ],
+          "Server": [
+            "cloudflare"
+          ]
+        },
+        "body": {
+          "encoding": "UTF-8",
+          "string": "{\"message\":\"Your eCommerce section is already activated.\",\"code\":\"bad request\"}\n"
+        }
+      },
+      "recorded_at": "Mon, 13 Oct 2025 20:27:09 GMT"
+    }
+  ],
+  "recorded_with": "VCR 6.3.1"
+}

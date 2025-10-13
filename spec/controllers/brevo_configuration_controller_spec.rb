@@ -136,6 +136,14 @@ RSpec.describe BrevoConfigurationController, type: :controller do
         json_response = JSON.parse(response.body)
         expect(json_response).to have_key('ecommerce_activation')
       end
+
+      it 'starts attribute creation job' do
+        expect(BrevoAttributeCreationJob).to receive(:perform_later).with(company.id)
+        
+        post :verify_connection, format: :json
+
+        expect(response).to have_http_status(:success)
+      end
     end
 
     context 'with invalid credentials' do

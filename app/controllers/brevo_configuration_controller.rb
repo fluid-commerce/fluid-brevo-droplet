@@ -86,6 +86,13 @@ class BrevoConfigurationController < ApplicationController
           # Silently fail - don't show toast if eCommerce activation fails
         end
         
+        # Create custom attributes in the background
+        begin
+          BrevoAttributeCreationJob.perform_later(@company.id)
+        rescue => e
+          Rails.logger.warn "Failed to start attribute creation job: #{e.message}"
+        end
+        
         respond_to do |format|
           format.html { redirect_to brevo_configuration_path, notice: success_message }
           format.json { render json: { success: true, message: success_message, ecommerce_activation: ecommerce_activated } }

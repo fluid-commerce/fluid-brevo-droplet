@@ -348,6 +348,9 @@ class OrderImportJob < ApplicationJob
         # Re-raise to let the main error handler deal with it
         raise e
       end
+      
+      # Respect Brevo's 10 RPS rate limit (0.12s = ~8.3 RPS with safety margin)
+      sleep(0.12)
     end
   end
 

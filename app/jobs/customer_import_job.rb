@@ -62,9 +62,6 @@ class CustomerImportJob < ApplicationJob
         break if is_last_page || total_imported >= total_customers
         
         page += 1
-        
-        # Small delay to avoid overwhelming the APIs
-        sleep(0.3)
       end
       
       # Store final result for controller to access
@@ -109,11 +106,6 @@ class CustomerImportJob < ApplicationJob
       # Fetch a reasonable number of customers to count
       params = { query: { page: 1, per_page: 1000 } } # Get up to 1000 customers to count
       response = fluid_client.get("/api/customers", params)
-      
-      # Debug the response
-      Rails.logger.info "Count response class: #{response.class}"
-      Rails.logger.info "Count response keys: #{response.keys if response.respond_to?(:keys)}"
-      Rails.logger.info "Count response: #{response.inspect[0..500]}"
       
       # Get all customers and filter them
       all_customers = response.dig('customers') || []
@@ -173,11 +165,6 @@ class CustomerImportJob < ApplicationJob
       
       response = fluid_client.get("/api/customers", params)
       
-      # Debug the response
-      Rails.logger.info "Page #{page} response class: #{response.class}"
-      Rails.logger.info "Page #{page} response keys: #{response.keys if response.respond_to?(:keys)}"
-      Rails.logger.info "Page #{page} customers count before filtering: #{response.dig('customers')&.length || 0}"
-      
       # Filter customers based on segment type on our side
       customers = response.dig('customers') || []
       filtered_customers = filter_customers_by_segment(customers)
@@ -212,8 +199,8 @@ class CustomerImportJob < ApplicationJob
       
       total_imported += customer_batch.length
       
-      # Small delay between Brevo batches
-      sleep(0.2)
+      # Respect Brevo's 10 RPS rate limit (0.12s = ~8.3 RPS with safety margin)
+      sleep(0.12)
     end
     
     total_imported
@@ -242,40 +229,40 @@ class CustomerImportJob < ApplicationJob
     # Create contact data for JSON generation
     contact_data = []
     
-    customers.each do |customer|
-      # Log customer data for debugging
-      Rails.logger.info "Customer data: email=#{customer['email']}, phone=#{customer['phone']}, first_name=#{customer['first_name']}, last_name=#{customer['last_name']}"
+    # Separate reps and non-reps for different processing
+    rep_customers = customers.select { |customer| customer['is_rep'] == true }
+    non_rep_customers = customers.select { |customer| customer['is_rep'] == false }
+    
+    Rails.logger.info "Found #{rep_customers.length} reps and #{non_rep_customers.length} non-reps"
+    
+    # Process non-rep customers first (simpler, no additional API calls needed)
+    non_rep_customers.each do |customer|
+      contact_data << build_customer_contact(customer, nil)
+    end
+    
+    # Process rep customers with additional MLM data
+    if rep_customers.any?
+      Rails.logger.info "Fetching MLM data for #{rep_customers.length} reps..."
       
-      # Validate email
-      email = customer['email']
-      if email.blank? || !email.include?('@')
-        Rails.logger.warn "Invalid email for customer #{customer['id']}: #{email}"
-        next # Skip this customer
-      end
-      
-      # Format phone number for Brevo JSON format
-      phone = customer['phone']
-      formatted_phone = if phone.present?
-        # Remove any non-numeric characters except +
-        cleaned = phone.gsub(/[^\d+]/, '')
-        # If it doesn't start with +, add it
-        cleaned = cleaned.start_with?('+') ? cleaned : "+#{cleaned}"
-        # Ensure minimum 8 characters as required by Brevo
-        cleaned.length >= 8 ? cleaned : ''
-      else
-        ''
-      end
-      
-      # Debug phone formatting
-      Rails.logger.info "Phone formatting: original='#{phone}', formatted='#{formatted_phone}'"
+      begin
+        rep_data = fetch_rep_data_for_customers(rep_customers)
 
-      # Create contact data for JSON
-      contact_data << {
-        email: email,
-        firstname: customer['first_name'] || '',
-        lastname: customer['last_name'] || '',
-        sms: formatted_phone
-      }
+        rep_customers.each do |customer|
+          rep_info = rep_data[customer['email']] || {}
+          contact_data << build_customer_contact(customer, rep_info)
+        end
+        
+        successful_reps = rep_data.values.count { |data| data.any? }
+        Rails.logger.info "Successfully processed #{successful_reps}/#{rep_customers.length} reps with MLM data"
+        
+      rescue => e
+        Rails.logger.error "Error fetching rep data, falling back to basic rep import: #{e.message}"
+        
+        # Fallback: import reps without MLM data
+        rep_customers.each do |customer|
+          contact_data << build_customer_contact(customer, {})
+        end
+      end
     end
     
     Rails.logger.info "Generated contact data: #{contact_data.length} contacts"
@@ -307,17 +294,194 @@ class CustomerImportJob < ApplicationJob
 
   private
 
+  def build_customer_contact(customer, rep_info = nil)
+    # Log customer data for debugging (only for reps with MLM data)
+    if customer['is_rep']
+      Rails.logger.info "Processing rep: #{customer['email']}"
+    end
+    
+    # Validate email
+    email = customer['email']
+    if email.blank? || !email.include?('@')
+      Rails.logger.warn "Invalid email for customer #{customer['id']}: #{email}"
+      return nil # Skip this customer
+    end
+    
+    # Format phone number for Brevo JSON format
+    phone = customer['phone']
+    formatted_phone = if phone.present?
+      # Remove any non-numeric characters except +
+      cleaned = phone.gsub(/[^\d+]/, '')
+      # If it doesn't start with +, add it
+      cleaned = cleaned.start_with?('+') ? cleaned : "+#{cleaned}"
+      # Ensure minimum 8 characters as required by Brevo
+      cleaned.length >= 8 ? cleaned : ''
+    else
+      ''
+    end
+
+    # Only log phone formatting issues
+    if phone.present? && formatted_phone.blank?
+      Rails.logger.warn "Phone formatting failed: original='#{phone}', formatted='#{formatted_phone}'"
+    end
+
+    # Build base contact data
+    contact = {
+      email: email,
+      firstname: customer['first_name'] || '',
+      lastname: customer['last_name'] || '',
+      sms: formatted_phone,
+      # Add customer_type attribute
+      customer_type: customer['is_rep'] ? 'rep' : 'no_rep'
+    }
+
+    # Add MLM-specific attributes for reps
+    if customer['is_rep'] && rep_info
+      contact[:shareguid] = rep_info[:share_guid] if rep_info[:share_guid]
+      contact[:sponsor_name] = rep_info[:sponsor_name] if rep_info[:sponsor_name]
+      contact[:sponsor_id] = rep_info[:sponsor_id] if rep_info[:sponsor_id]
+      contact[:rank] = rep_info[:rank] if rep_info[:rank]
+
+      # Only log if we have MLM data
+      if contact[:shareguid] || contact[:sponsor_name] || contact[:sponsor_id]
+        Rails.logger.info "Rep with MLM data: #{contact[:shareguid]}, #{contact[:sponsor_name]}, #{contact[:sponsor_id]}"
+      end
+    end
+
+    contact
+  end
+
+  def fetch_rep_data_for_customers(rep_customers)
+    Rails.logger.info "Fetching rep data for #{rep_customers.length} reps"
+
+    rep_data = {}
+
+    # Get all rep emails for batch processing
+    rep_emails = rep_customers.map { |customer| customer['email'] }.compact.uniq
+    
+    # Process reps in smaller batches to avoid overwhelming the API
+    rep_emails.each_slice(3) do |email_batch|
+      Rails.logger.info "Processing rep batch: #{email_batch.join(', ')}"
+      
+      email_batch.each do |email|
+        begin
+          # Search for rep by email using the list reps endpoint
+          
+          search_params = {
+            query: {
+              search_query: email,
+              per_page: 1, # We only need 1 result since we're searching by exact email
+              active: true
+            }
+          }
+          
+          reps_response = fluid_client.get("/api/v2/reps", search_params)
+          reps = reps_response.dig('reps') || []
+          
+          # Find the rep with matching email
+          matching_rep = reps.find { |rep| rep['computed_email'] == email }
+          
+          if matching_rep
+            
+            # Get detailed rep info including enroller data
+            rep_detail = fetch_rep_detail(matching_rep['id'])
+            
+            if rep_detail
+              # Build sponsor name from enroller data
+              sponsor_name = nil
+              
+              if rep_detail.dig('enroller', 'first_name') && rep_detail.dig('enroller', 'last_name')
+                sponsor_name = "#{rep_detail['enroller']['first_name']} #{rep_detail['enroller']['last_name']}".strip
+              end
+              
+              rep_data[email] = {
+                share_guid: rep_detail['share_guid'],
+                sponsor_name: sponsor_name,
+                sponsor_id: rep_detail['external_id'],
+                rank: nil # TODO: Find where rank is stored
+              }
+              
+              # Only log if we got useful data
+              if rep_data[email][:share_guid] || rep_data[email][:sponsor_name]
+                Rails.logger.info "Rep data for #{email}: #{rep_data[email][:share_guid]}, #{rep_data[email][:sponsor_name]}"
+              end
+            else
+              Rails.logger.warn "Could not fetch detailed rep info for #{email}"
+              rep_data[email] = {}
+            end
+          else
+            Rails.logger.warn "No rep found for email: #{email}"
+            rep_data[email] = {}
+          end
+          
+        rescue => e
+          Rails.logger.error "Error fetching rep data for #{email}: #{e.message}"
+          Rails.logger.error "Error details: #{e.class} - #{e.backtrace&.first(3)&.join(', ')}"
+          rep_data[email] = {}
+        end
+      end
+      
+      # No delay needed - let the API handle rate limiting naturally
+    end
+
+    successful_fetches = rep_data.values.count { |data| data.any? }
+    Rails.logger.info "Fetched rep data for #{successful_fetches}/#{rep_emails.length} reps"
+    
+    # Log performance summary only if there were failures
+    failed_fetches = rep_emails.length - successful_fetches
+    if failed_fetches > 0
+      Rails.logger.warn "Rep data fetching: #{successful_fetches} successful, #{failed_fetches} failed"
+    end
+    rep_data
+  end
+
+  def fetch_rep_detail(rep_id)
+    begin
+      # Fetch detailed rep info
+      
+      # Use timeout for rep detail fetching to avoid hanging
+      rep_response = fluid_client.get_with_timeout("/api/v2/reps/#{rep_id}", {}, 30)
+
+      if rep_response && rep_response['rep']
+        rep_response['rep']
+      else
+        Rails.logger.warn "Empty or invalid response for rep #{rep_id}"
+        nil
+      end
+      
+    rescue Net::ReadTimeout, Net::OpenTimeout => e
+      Rails.logger.error "Timeout fetching rep detail for #{rep_id}: #{e.message}"
+      nil
+    rescue => e
+      Rails.logger.error "Error fetching rep detail for #{rep_id}: #{e.message}"
+      Rails.logger.error "Error details: #{e.class} - #{e.backtrace&.first(3)&.join(', ')}"
+      nil
+    end
+  end
+
   def generate_json_from_contacts(contact_data)
     # Generate JSON body following Brevo's exact format as provided by support
-    contact_data.map do |contact|
+    contact_data.compact.map do |contact|
+      # Build base attributes
+      attributes = {
+        FIRSTNAME: contact[:firstname] || '',
+        LASTNAME: contact[:lastname] || '',
+        SMS: contact[:sms] || '',
+        WHATSAPP: contact[:sms] || '',
+        CUSTOMER_TYPE: contact[:customer_type] || 'no_rep'
+      }
+      
+      # Add MLM-specific attributes for reps
+      if contact[:customer_type] == 'rep'
+        attributes[:SHAREGUID] = contact[:shareguid] if contact[:shareguid]
+        attributes[:SPONSOR_NAME] = contact[:sponsor_name] if contact[:sponsor_name]
+        attributes[:SPONSOR_ID] = contact[:sponsor_id] if contact[:sponsor_id]
+        attributes[:RANK] = contact[:rank] if contact[:rank]
+      end
+      
       {
         email: contact[:email],
-        attributes: {
-          FIRSTNAME: contact[:firstname] || '',
-          LASTNAME: contact[:lastname] || '',
-          SMS: contact[:sms] || '',
-          WHATSAPP: contact[:sms] || ''
-        }
+        attributes: attributes
       }
     end
   end

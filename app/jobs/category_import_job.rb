@@ -158,6 +158,9 @@ private
         Rails.logger.error "Failed to import category batch: #{e.message}"
         raise e
       end
+      
+      # Respect Brevo's 10 RPS rate limit (0.12s = ~8.3 RPS with safety margin)
+      sleep(0.12)
     end
     
     Rails.logger.info "Total categories imported to Brevo: #{brevo_categories.length}"

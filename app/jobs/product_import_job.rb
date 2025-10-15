@@ -118,8 +118,6 @@ class ProductImportJob < ApplicationJob
         # Break if we've reached the last page
         break if is_last_page
         
-        # Small delay between requests to avoid overwhelming the API
-        sleep(0.5)
         page += 1
       end
       
@@ -262,6 +260,9 @@ class ProductImportJob < ApplicationJob
         Rails.logger.error "Backtrace: #{e.backtrace.join("\n")}"
         raise e
       end
+      
+      # Respect Brevo's 10 RPS rate limit (0.12s = ~8.3 RPS with safety margin)
+      sleep(0.12)
     end
     
     Rails.logger.info "Total products imported to Brevo: #{total_imported}"

@@ -32,7 +32,7 @@ class BrevoAttributeCreationJob < ApplicationJob
     {
       name: 'sponsor_id',
       category: 'normal',
-      type: 'id'
+      type: 'text'
     }
   ].freeze
 
@@ -118,9 +118,11 @@ class BrevoAttributeCreationJob < ApplicationJob
     end
     
     Rails.logger.info "Creating #{attribute_name} attribute with params: #{attribute_params.inspect}"
+    Rails.logger.info "Endpoint: /contacts/attributes/#{attribute_category}/#{attribute_name}"
     
     begin
       # Use the correct endpoint format: /contacts/attributes/{attributeCategory}/{attributeName}
+      
       result = brevo_client.create_attribute_with_category(attribute_category, attribute_name, attribute_params)
       
       Rails.logger.info "#{attribute_name} attribute creation result: #{result.inspect}"

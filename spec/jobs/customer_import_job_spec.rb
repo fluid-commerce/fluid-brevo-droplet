@@ -36,8 +36,48 @@ RSpec.describe CustomerImportJob, type: :job do
     end
 
     before do
-      # Mock Fluid API response
-      allow_any_instance_of(FluidClient).to receive(:get).and_return(fluid_response)
+      # Mock Fluid API responses for different endpoints
+      # Mock /api/customers endpoint
+      allow_any_instance_of(FluidClient).to receive(:get).with('/api/customers', anything).and_return(fluid_response)
+      
+      # Mock /api/v2/reps endpoint for rep data
+      reps_response = {
+        'reps' => [
+          {
+            'id' => 1,
+            'computed_email' => 'rep@example.com',
+            'share_guid' => 'abc123',
+            'rank' => 'Gold'
+          }
+        ],
+        'meta' => { 'pagination' => { 'current_page' => 1, 'total_pages' => 1 } }
+      }
+      allow_any_instance_of(FluidClient).to receive(:get).with('/api/v2/reps', anything).and_return(reps_response)
+      
+      # Mock /api/v202506/users endpoint for rank data
+      users_response = {
+        'user_companies' => [
+          {
+            'user' => { 'email' => 'rep@example.com' },
+            'rank' => 'Gold'
+          }
+        ],
+        'meta' => { 'pagination' => { 'current_page' => 1, 'total_pages' => 1 } }
+      }
+      allow_any_instance_of(FluidClient).to receive(:get).with('/api/v202506/users', anything).and_return(users_response)
+      
+      # Mock /api/v2/reps/{id} endpoint for sponsor data
+      rep_detail_response = {
+        'rep' => {
+          'id' => 1,
+          'enroller' => {
+            'first_name' => 'Sponsor',
+            'last_name' => 'Name',
+            'external_id' => 'sponsor123'
+          }
+        }
+      }
+      allow_any_instance_of(FluidClient).to receive(:get).with(/\/api\/v2\/reps\/\d+/, anything).and_return(rep_detail_response)
       
       # Mock Brevo API response
       allow_any_instance_of(BrevoClient).to receive(:import_contacts).and_return({ 'processId' => '123' })
@@ -278,7 +318,8 @@ RSpec.describe CustomerImportJob, type: :job do
           'email' => 'customer@example.com',
           'first_name' => 'John',
           'last_name' => 'Doe',
-          'phone' => '1234567890'
+          'phone' => '1234567890',
+          'is_rep' => false
         }
       ]
 
@@ -299,12 +340,14 @@ RSpec.describe CustomerImportJob, type: :job do
         {
           'id' => 1,
           'email' => 'invalid-email',
-          'first_name' => 'John'
+          'first_name' => 'John',
+          'is_rep' => false
         },
         {
           'id' => 2,
           'email' => 'valid@example.com',
-          'first_name' => 'Jane'
+          'first_name' => 'Jane',
+          'is_rep' => false
         }
       ]
 
@@ -319,7 +362,8 @@ RSpec.describe CustomerImportJob, type: :job do
         {
           'id' => 1,
           'email' => '',
-          'first_name' => 'John'
+          'first_name' => 'John',
+          'is_rep' => false
         }
       ]
 
@@ -333,7 +377,8 @@ RSpec.describe CustomerImportJob, type: :job do
         {
           'id' => 1,
           'email' => 'customer@example.com',
-          'phone' => '(123) 456-7890'
+          'phone' => '(123) 456-7890',
+          'is_rep' => false
         }
       ]
 
@@ -348,7 +393,8 @@ RSpec.describe CustomerImportJob, type: :job do
         {
           'id' => 1,
           'email' => 'customer@example.com',
-          'first_name' => 'John'
+          'first_name' => 'John',
+          'is_rep' => false
         }
       ]
 
@@ -362,7 +408,8 @@ RSpec.describe CustomerImportJob, type: :job do
         {
           'id' => 1,
           'email' => 'customer@example.com',
-          'phone' => '123'
+          'phone' => '123',
+          'is_rep' => false
         }
       ]
 
@@ -375,7 +422,8 @@ RSpec.describe CustomerImportJob, type: :job do
       customers = [
         {
           'id' => 1,
-          'email' => 'customer@example.com'
+          'email' => 'customer@example.com',
+          'is_rep' => false
         }
       ]
 
@@ -383,6 +431,46 @@ RSpec.describe CustomerImportJob, type: :job do
 
       expect(result.first[:firstname]).to eq('')
       expect(result.first[:lastname]).to eq('')
+    end
+
+    context 'with rep customers and MLM data' do
+      let(:rep_customers) do
+        [
+          {
+            'id' => 1,
+            'email' => 'rep@example.com',
+            'first_name' => 'Rep',
+            'last_name' => 'User',
+            'is_rep' => true
+          }
+        ]
+      end
+
+      before do
+        # Mock rep data fetching
+        allow(job).to receive(:fetch_rep_data_for_customers).and_return({
+          'rep@example.com' => {
+            share_guid: 'abc123',
+            sponsor_name: 'Sponsor Name',
+            sponsor_id: 'sponsor123',
+            rank: 'Gold'
+          }
+        })
+      end
+
+      it 'includes MLM attributes for rep customers' do
+        result = job.send(:transform_customers_to_brevo_format, rep_customers)
+
+        expect(result.length).to eq(1)
+        contact = result.first
+        
+        expect(contact[:email]).to eq('rep@example.com')
+        expect(contact[:customer_type]).to eq('rep')
+        expect(contact[:shareguid]).to eq('abc123')
+        expect(contact[:sponsor_name]).to eq('Sponsor Name')
+        expect(contact[:sponsor_id]).to eq('sponsor123')
+        expect(contact[:rank]).to eq('Gold')
+      end
     end
   end
 
@@ -470,7 +558,8 @@ RSpec.describe CustomerImportJob, type: :job do
               FIRSTNAME: 'John',
               LASTNAME: 'Doe',
               SMS: '+1234567890',
-              WHATSAPP: '+1234567890'
+              WHATSAPP: '+1234567890',
+              CUSTOMER_TYPE: 'no_rep'
             }
           }
         ]
@@ -542,6 +631,101 @@ RSpec.describe CustomerImportJob, type: :job do
       expect {
         described_class.new.perform(company.id, segment, list_id, job_id)
       }.not_to raise_error
+    end
+  end
+
+  describe '#fetch_rep_data_for_customers' do
+    let(:job) { described_class.new }
+    let(:rep_customers) do
+      [
+        { 'email' => 'rep1@example.com', 'is_rep' => true },
+        { 'email' => 'rep2@example.com', 'is_rep' => true }
+      ]
+    end
+
+    before do
+      job.instance_variable_set(:@company, company)
+      
+      # Mock Fluid API responses
+      reps_response = {
+        'reps' => [
+          { 'id' => 1, 'computed_email' => 'rep1@example.com', 'share_guid' => 'guid1' },
+          { 'id' => 2, 'computed_email' => 'rep2@example.com', 'share_guid' => 'guid2' }
+        ],
+        'meta' => { 'pagination' => { 'current_page' => 1, 'total_pages' => 1 } }
+      }
+      allow_any_instance_of(FluidClient).to receive(:get).with('/api/v2/reps', anything).and_return(reps_response)
+      
+      users_response = {
+        'user_companies' => [
+          { 'user' => { 'email' => 'rep1@example.com' }, 'rank' => 'Gold' },
+          { 'user' => { 'email' => 'rep2@example.com' }, 'rank' => 'Silver' }
+        ]
+      }
+      allow_any_instance_of(FluidClient).to receive(:get).with('/api/v202506/users', anything).and_return(users_response)
+      
+      rep_detail_response = {
+        'rep' => {
+          'enroller' => {
+            'first_name' => 'Sponsor',
+            'last_name' => 'Name',
+            'external_id' => 'sponsor123'
+          }
+        }
+      }
+      allow_any_instance_of(FluidClient).to receive(:get).with(/\/api\/v2\/reps\/\d+/, anything).and_return(rep_detail_response)
+    end
+
+    it 'fetches MLM data for rep customers' do
+      result = job.send(:fetch_rep_data_for_customers, rep_customers)
+
+      expect(result).to be_a(Hash)
+      expect(result['rep1@example.com']).to include(:share_guid, :sponsor_name, :sponsor_id, :rank)
+      expect(result['rep2@example.com']).to include(:share_guid, :sponsor_name, :sponsor_id, :rank)
+    end
+
+    it 'handles API errors gracefully' do
+      allow_any_instance_of(FluidClient).to receive(:get).and_raise(StandardError.new('API Error'))
+      
+      result = job.send(:fetch_rep_data_for_customers, rep_customers)
+      
+      expect(result).to be_a(Hash)
+      expect(result.values.all?(&:empty?)).to be true
+    end
+  end
+
+  describe '#fetch_rep_detail' do
+    let(:job) { described_class.new }
+
+    before do
+      job.instance_variable_set(:@company, company)
+    end
+
+    it 'fetches detailed rep information' do
+      rep_detail_response = {
+        'rep' => {
+          'id' => 1,
+          'enroller' => {
+            'first_name' => 'Sponsor',
+            'last_name' => 'Name',
+            'external_id' => 'sponsor123'
+          }
+        }
+      }
+      
+      allow_any_instance_of(FluidClient).to receive(:get_with_timeout).and_return(rep_detail_response)
+      
+      result = job.send(:fetch_rep_detail, 1)
+      
+      expect(result).to eq(rep_detail_response['rep'])
+    end
+
+    it 'handles timeout errors' do
+      allow_any_instance_of(FluidClient).to receive(:get_with_timeout).and_raise(Net::ReadTimeout.new('Timeout'))
+      
+      result = job.send(:fetch_rep_detail, 1)
+      
+      expect(result).to be_nil
     end
   end
 

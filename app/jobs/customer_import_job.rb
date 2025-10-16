@@ -237,7 +237,8 @@ class CustomerImportJob < ApplicationJob
     
     # Process non-rep customers first (simpler, no additional API calls needed)
     non_rep_customers.each do |customer|
-      contact_data << build_customer_contact(customer, nil)
+      contact = build_customer_contact(customer, nil)
+      contact_data << contact if contact
     end
     
     # Process rep customers with additional MLM data
@@ -249,7 +250,8 @@ class CustomerImportJob < ApplicationJob
 
         rep_customers.each do |customer|
           rep_info = rep_data[customer['email']] || {}
-          contact_data << build_customer_contact(customer, rep_info)
+          contact = build_customer_contact(customer, rep_info)
+          contact_data << contact if contact
         end
         
         successful_reps = rep_data.values.count { |data| data.any? }
@@ -260,7 +262,8 @@ class CustomerImportJob < ApplicationJob
         
         # Fallback: import reps without MLM data
         rep_customers.each do |customer|
-          contact_data << build_customer_contact(customer, {})
+          contact = build_customer_contact(customer, {})
+          contact_data << contact if contact
         end
       end
     end
@@ -352,94 +355,152 @@ class CustomerImportJob < ApplicationJob
   end
 
   def fetch_rep_data_for_customers(rep_customers)
-    Rails.logger.info "Fetching rep data for #{rep_customers.length} reps"
+    Rails.logger.info "Fetching rep data for #{rep_customers.length}"
 
     rep_data = {}
-
-    # Get all rep emails for batch processing
     rep_emails = rep_customers.map { |customer| customer['email'] }.compact.uniq
-    
-    # Process reps in smaller batches to avoid overwhelming the API
-    rep_emails.each_slice(3) do |email_batch|
-      Rails.logger.info "Processing rep batch: #{email_batch.join(', ')}"
+
+    begin
+      # We need both endpoints: /api/v2/reps for rep IDs and /api/v202506/users for rank data
+      # First, get all reps to get rep IDs and basic info
+      all_reps = []
+      page = 1
+      per_page = 100  # API limit: must be <= 100
+
+      loop do
+        # Try different parameter combinations to see which works
+        reps_params = {
+          query: {
+            page: page,
+            per_page: per_page
+          }
+        }
+
+        Rails.logger.info "Fetching reps page #{page}"
+        Rails.logger.info "Trying params: #{reps_params}"
+        
+        Rails.logger.info "About to call fluid_client.get with params: #{reps_params}"
+        
+        reps_response = fluid_client.get("/api/v2/reps", reps_params)
+        
+        Rails.logger.info "Response received: #{reps_response.inspect}"
+        page_reps = reps_response.dig('reps') || []
+
+        all_reps.concat(page_reps)
+
+        # Check if we've reached the last page
+        pagination = reps_response.dig('meta', 'pagination')
+        if pagination
+          current_page = pagination['current_page']
+          total_pages = pagination['total_pages']
+          Rails.logger.info "Reps page #{current_page} of #{total_pages}"
+          break if current_page >= total_pages
+        elsif page_reps.length < per_page
+          Rails.logger.info "Reached last page (#{page_reps.length} < #{per_page} reps)"
+          break
+        end
+
+        page += 1
+      end
+
+      Rails.logger.info "Retrieved #{all_reps.length} total reps"
+
+      # Get rank data for specific rep emails using search_query
+      Rails.logger.info "Fetching rank data for #{rep_emails.length} specific reps..."
+      ranks_by_email = {}
       
-      email_batch.each do |email|
+      rep_emails.each do |email|
         begin
-          # Search for rep by email using the list reps endpoint
-          
-          search_params = {
+          # Search for specific user by email using search_query
+          users_params = {
             query: {
+              role: 'rep',
               search_query: email,
-              per_page: 1, # We only need 1 result since we're searching by exact email
-              active: true
+              per_page: 1  # We only need 1 result since we're searching by exact email
             }
           }
           
-          reps_response = fluid_client.get("/api/v2/reps", search_params)
-          reps = reps_response.dig('reps') || []
+          users_response = fluid_client.get("/api/v202506/users", users_params)
+          users = users_response.dig('user_companies') || []
           
-          # Find the rep with matching email
-          matching_rep = reps.find { |rep| rep['computed_email'] == email }
+          # Find the user with matching email
+          matching_user = users.find { |user| user.dig('user', 'email') == email }
           
-          if matching_rep
-            
-            # Get detailed rep info including enroller data
-            rep_detail = fetch_rep_detail(matching_rep['id'])
-            
-            if rep_detail
-              # Build sponsor name from enroller data
-              sponsor_name = nil
-              
-              if rep_detail.dig('enroller', 'first_name') && rep_detail.dig('enroller', 'last_name')
-                sponsor_name = "#{rep_detail['enroller']['first_name']} #{rep_detail['enroller']['last_name']}".strip
-              end
-              
-              rep_data[email] = {
-                share_guid: rep_detail['share_guid'],
-                sponsor_name: sponsor_name,
-                sponsor_id: rep_detail['external_id'],
-                rank: nil # TODO: Find where rank is stored
-              }
-              
-              # Only log if we got useful data
-              if rep_data[email][:share_guid] || rep_data[email][:sponsor_name]
-                Rails.logger.info "Rep data for #{email}: #{rep_data[email][:share_guid]}, #{rep_data[email][:sponsor_name]}"
-              end
-            else
-              Rails.logger.warn "Could not fetch detailed rep info for #{email}"
-              rep_data[email] = {}
-            end
+          if matching_user
+            ranks_by_email[email] = matching_user['rank']
+            Rails.logger.info "Found rank for #{email}: #{matching_user['rank']}"
           else
-            Rails.logger.warn "No rep found for email: #{email}"
-            rep_data[email] = {}
+            Rails.logger.warn "No user found for email: #{email}"
+            ranks_by_email[email] = nil
           end
           
         rescue => e
-          Rails.logger.error "Error fetching rep data for #{email}: #{e.message}"
-          Rails.logger.error "Error details: #{e.class} - #{e.backtrace&.first(3)&.join(', ')}"
+          Rails.logger.error "Error fetching rank for #{email}: #{e.message}"
+          ranks_by_email[email] = nil
+        end
+      end
+      
+      Rails.logger.info "Retrieved rank data for #{ranks_by_email.values.compact.length}/#{rep_emails.length} reps"
+      
+      # Create a lookup hash by email for fast matching
+      reps_by_email = {}
+      all_reps.each do |rep|
+        email = rep['computed_email']
+        if email.present?
+          reps_by_email[email] = rep
+        end
+      end
+      
+      # Match our rep customers with the fetched data
+      rep_emails.each do |email|
+        if reps_by_email[email]
+          rep_info = reps_by_email[email]
+          
+          # For sponsor information, we need to fetch individual rep details
+          # The users endpoint doesn't include enroller/sponsor data
+          sponsor_name = nil
+          sponsor_id = nil
+          
+          # Get detailed rep info to access enroller data
+          rep_detail = fetch_rep_detail(rep_info['id'])
+          
+          if rep_detail && rep_detail.dig('enroller')
+            enroller = rep_detail['enroller']
+            if enroller['first_name'] && enroller['last_name']
+              sponsor_name = "#{enroller['first_name']} #{enroller['last_name']}".strip
+            end
+            sponsor_id = enroller['external_id']
+          end
+
+          rep_data[email] = {
+            share_guid: rep_info['share_guid'],
+            sponsor_name: sponsor_name,
+            sponsor_id: sponsor_id,
+            rank: ranks_by_email[email] # Available from /api/v202506/users
+          }
+          
+        else
           rep_data[email] = {}
         end
       end
       
-      # No delay needed - let the API handle rate limiting naturally
+      successful_fetches = rep_data.values.count { |data| data.any? }
+      Rails.logger.info "Successfully processed #{successful_fetches}/#{rep_emails.length} reps with MLM data"
+      
+    rescue => e
+      Rails.logger.error "Error fetching rep data using users endpoint: #{e.message}"
+      Rails.logger.error "Error details: #{e.class} - #{e.backtrace&.first(3)&.join(', ')}"
+      
+      # Fallback: return empty data for all reps
+      rep_emails.each { |email| rep_data[email] = {} }
     end
 
-    successful_fetches = rep_data.values.count { |data| data.any? }
-    Rails.logger.info "Fetched rep data for #{successful_fetches}/#{rep_emails.length} reps"
-    
-    # Log performance summary only if there were failures
-    failed_fetches = rep_emails.length - successful_fetches
-    if failed_fetches > 0
-      Rails.logger.warn "Rep data fetching: #{successful_fetches} successful, #{failed_fetches} failed"
-    end
     rep_data
   end
 
   def fetch_rep_detail(rep_id)
     begin
-      # Fetch detailed rep info
-      
-      # Use timeout for rep detail fetching to avoid hanging
+      # Fetch detailed rep info to get enroller/sponsor data
       rep_response = fluid_client.get_with_timeout("/api/v2/reps/#{rep_id}", {}, 30)
 
       if rep_response && rep_response['rep']
@@ -454,7 +515,6 @@ class CustomerImportJob < ApplicationJob
       nil
     rescue => e
       Rails.logger.error "Error fetching rep detail for #{rep_id}: #{e.message}"
-      Rails.logger.error "Error details: #{e.class} - #{e.backtrace&.first(3)&.join(', ')}"
       nil
     end
   end

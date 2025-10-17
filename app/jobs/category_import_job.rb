@@ -14,6 +14,7 @@ class CategoryImportJob < ApplicationJob
     begin
       # Initialize progress tracking
       update_progress(0, "Starting category import...")
+      ActivityLog.log_info(@company, 'category_import', "Starting category import")
       
       # Import categories page by page
       page = 1
@@ -96,12 +97,20 @@ class CategoryImportJob < ApplicationJob
       update_progress(100, "Successfully imported #{total_imported} categories")
       
       Rails.logger.info "Total categories imported to Brevo: #{total_imported}"
+      
+      # Log successful completion (no details to keep it simple)
+      ActivityLog.log_success(@company, 'category_import', "Successfully imported #{total_imported} categories", {})
+      
       { success: true, total_imported: total_imported }
       
     rescue => e
       Rails.logger.error "Category import job failed: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
       update_progress(0, "Category import failed: #{e.message}")
+      
+      # Log error (no details to keep it simple)
+      ActivityLog.log_error(@company, 'category_import', "Category import failed: #{e.message}", {})
+      
       raise e
     end
   end

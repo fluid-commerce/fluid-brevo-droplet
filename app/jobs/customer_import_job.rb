@@ -14,6 +14,8 @@ class CustomerImportJob < ApplicationJob
     begin
       # Initialize progress tracking
       update_progress(0, "Starting customer import...")
+      list_name = get_friendly_list_name(@segment)
+      ActivityLog.log_info(@company, 'customer_import', "Starting customer import for #{list_name}")
       
       # Get total customer count first
       total_customers = get_total_customer_count
@@ -21,6 +23,7 @@ class CustomerImportJob < ApplicationJob
       
       if total_customers == 0
         update_progress(100, "No customers found to import")
+        ActivityLog.log_warning(@company, 'customer_import', "No customers found to import for segment: #{@segment}")
         return
       end
       
@@ -65,7 +68,8 @@ class CustomerImportJob < ApplicationJob
       end
       
       # Store final result for controller to access
-      final_message = "Successfully imported #{total_imported} customers"
+      list_name = get_friendly_list_name(@segment)
+      final_message = "Successfully imported #{total_imported} customers to #{list_name}"
       final_result_data = {
         message: final_message,
         total_imported: total_imported
@@ -76,9 +80,13 @@ class CustomerImportJob < ApplicationJob
       # Update progress with final message
       update_progress(100, final_message)
       
+      # Log successful completion (no details to keep it simple)
+      ActivityLog.log_success(@company, 'customer_import', final_message, {})
+      
     rescue => e
       Rails.logger.error "Customer import job #{@job_id} failed: #{e.message}"
       update_progress(-1, "Import failed: #{e.message}")
+      ActivityLog.log_error(@company, 'customer_import', "Customer import failed: #{e.message}", {})
       raise
     end
   end
@@ -552,5 +560,18 @@ class CustomerImportJob < ApplicationJob
 
   def brevo_client
     @brevo_client ||= BrevoClient.new(@company.integration_setting.credentials.dig('brevo', 'api_key'))
+  end
+
+  def get_friendly_list_name(segment)
+    case segment
+    when 'everyone_list_id'
+      'Everyone List'
+    when 'customer_list_id'
+      'Customer List'
+    when 'rep_list_id'
+      'Rep List'
+    else
+      segment.humanize
+    end
   end
 end

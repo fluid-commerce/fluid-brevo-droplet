@@ -13,6 +13,7 @@ class OrderImportJob < ApplicationJob
 
     # Initialize progress tracking
     update_progress(0, "Starting order import...")
+    ActivityLog.log_info(@company, 'order_import', "Starting order import")
 
     # Initialize clients
     fluid_client = FluidClient.new(@auth_token)
@@ -95,10 +96,17 @@ class OrderImportJob < ApplicationJob
     update_progress(100, "Order import completed! Imported #{total_imported} orders")
     Rails.logger.info "Order import completed for company #{@company.id}. Total imported: #{total_imported}"
     
+    # Log successful completion (no details to keep it simple)
+    ActivityLog.log_success(@company, 'order_import', "Successfully imported #{total_imported} orders", {})
+    
   rescue => e
     Rails.logger.error "Order import job #{@job_id} failed: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
     update_progress(0, "Order import failed: #{e.message}")
+    
+    # Log error (no details to keep it simple)
+    ActivityLog.log_error(@company, 'order_import', "Order import failed: #{e.message}", {})
+    
     raise e
   end
 

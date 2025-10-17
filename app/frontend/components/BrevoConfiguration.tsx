@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 import ConfigurationTab from './ConfigurationTab';
 import ListManagementTab from './ListManagementTab';
+import ActivityLogs from './ActivityLogs';
 
 interface BrevoConfigurationProps {
   company?: {
+    id: number;
     name: string;
     fluid_shop: string;
     integration_setting?: {
@@ -67,7 +69,7 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [lists, setLists] = useState(initialLists || []);
   const [segmentMappings, setSegmentMappings] = useState(initialSegmentMappings || {});
-  const [activeTab, setActiveTab] = useState<'configuration' | 'list-management' | 'product-import'>('configuration');
+  const [activeTab, setActiveTab] = useState<'configuration' | 'list-management' | 'product-import' | 'activity-logs'>('configuration');
   const [isSyncingSegment, setIsSyncingSegment] = useState<string | null>(null);
   const [toastNotification, setToastNotification] = useState<{
     message: string;
@@ -642,7 +644,7 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
         setTimeout(() => {
           setToastNotification(null);
           setIsSyncingSegment(null);
-          setFlashMessage({ type: 'success', message: 'Order import completed successfully!' });
+          setFlashMessage({ type: 'success', message: 'Order import completed! Check Activity Logs for details.' });
         }, 10000); // 10 second timeout
       } else {
         setToastNotification(null);
@@ -781,6 +783,16 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
                   }`}
                 >
                   Product & Order Import
+                </button>
+                <button
+                  onClick={() => setActiveTab('activity-logs')}
+                  className={`py-4 px-2 border-b-2 font-semibold text-base transition-colors duration-200 ${
+                    activeTab === 'activity-logs'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Activity Logs
                 </button>
               </nav>
                   </div>
@@ -944,6 +956,12 @@ const BrevoConfiguration: React.FC<BrevoConfigurationProps> = ({
               </div>
             )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'activity-logs' && (
+          <div className="space-y-6">
+            <ActivityLogs companyId={company?.id} />
           </div>
         )}
           </div>

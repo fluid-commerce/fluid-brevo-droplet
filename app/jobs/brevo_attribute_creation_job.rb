@@ -43,6 +43,8 @@ class BrevoAttributeCreationJob < ApplicationJob
     Rails.logger.info "Starting Brevo attribute creation for company #{company_id}"
     Rails.logger.info "Attributes to create: #{ATTRIBUTES_TO_CREATE.map { |attr| attr[:name] }.join(', ')}"
     
+    ActivityLog.log_info(@company, 'attribute_creation', "Starting Brevo attribute creation")
+    
     begin
       brevo_client = BrevoClient.new(@api_key)
       
@@ -67,6 +69,9 @@ class BrevoAttributeCreationJob < ApplicationJob
       
       Rails.logger.info "Attribute creation completed: #{created_count} created, #{skipped_count} skipped"
       
+      # Log successful completion (no details to keep it simple)
+      ActivityLog.log_success(@company, 'attribute_creation', "Successfully created #{created_count} attributes, #{skipped_count} already existed", {})
+      
       {
         success: true,
         message: "Attribute creation completed: #{created_count} created, #{skipped_count} skipped",
@@ -77,10 +82,18 @@ class BrevoAttributeCreationJob < ApplicationJob
       
     rescue BrevoApiError => e
       Rails.logger.error "Brevo API error creating attributes: #{e.message} (Status: #{e.status_code})"
+      
+      # Log error (no details to keep it simple)
+      ActivityLog.log_error(@company, 'attribute_creation', "Brevo API error creating attributes: #{e.message}", {})
+      
       { success: false, error: "Brevo API error: #{e.message}", status_code: e.status_code }
     rescue => e
       Rails.logger.error "Unexpected error creating Brevo attributes: #{e.class.name}: #{e.message}"
       Rails.logger.error "Backtrace: #{e.backtrace.first(5).join('\n')}"
+      
+      # Log error (no details to keep it simple)
+      ActivityLog.log_error(@company, 'attribute_creation', "Unexpected error creating attributes: #{e.message}", {})
+      
       { success: false, error: "Unexpected error: #{e.message}" }
     end
   end

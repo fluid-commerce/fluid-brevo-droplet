@@ -14,6 +14,7 @@ class ProductImportJob < ApplicationJob
     begin
       # Initialize progress tracking
       update_progress(0, "Starting product import...")
+      ActivityLog.log_info(@company, 'product_import', "Starting product import")
       
       # Import products page by page
       page = 1
@@ -147,9 +148,15 @@ class ProductImportJob < ApplicationJob
       # Update progress with final message
       update_progress(100, final_message)
       
+      # Log successful completion (no details to keep it simple)
+      ActivityLog.log_success(@company, 'product_import', final_message, {})
+      
     rescue => e
       Rails.logger.error "Product import job #{@job_id} failed: #{e.message}"
       Rails.logger.error "Backtrace: #{e.backtrace.join("\n")}"
+      
+      # Log error (no details to keep it simple)
+      ActivityLog.log_error(@company, 'product_import', "Product import failed: #{e.message}", {})
       
       # Store final result for controller to access
       final_message = "Import failed: #{e.message}"

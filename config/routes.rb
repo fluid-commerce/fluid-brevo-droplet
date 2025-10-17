@@ -23,6 +23,11 @@ Rails.application.routes.draw do
   post "brevo/import_categories", to: "brevo_configuration#import_categories", as: :brevo_import_categories
   post "brevo/import_orders", to: "brevo_configuration#import_orders", as: :brevo_import_orders
 
+  # Activity logs
+  resources :activity_logs, only: [:index] do
+    delete :clear, on: :collection
+  end
+
   namespace :admin do
     get "dashboard/index"
     resource :droplet, only: %i[ create update ]

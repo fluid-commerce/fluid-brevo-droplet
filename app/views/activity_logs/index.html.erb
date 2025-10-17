@@ -1,0 +1,106 @@
+<div class="container mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold text-gray-900">Activity Logs</h1>
+    <div class="flex gap-2">
+      <button 
+        onclick="clearLogs()" 
+        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+      >
+        Clear All Logs
+      </button>
+      <button 
+        onclick="refreshLogs()" 
+        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+      >
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="bg-white shadow rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-lg font-medium text-gray-900">Recent Activity</h2>
+    </div>
+    
+    <div id="logs-container" class="divide-y divide-gray-200">
+      <% if @logs.any? %>
+        <% @logs.each do |log| %>
+          <div class="px-6 py-4 flex items-start space-x-3">
+            <div class="flex-shrink-0">
+              <% case log.status %>
+              <% when 'success' %>
+                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+              <% when 'error' %>
+                <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+              <% when 'warning' %>
+                <div class="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <% else %>
+                <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <% end %>
+            </div>
+            
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-gray-900">
+                  <%= log.job_type.humanize %>
+                </p>
+                <p class="text-xs text-gray-500">
+                  <%= time_ago_in_words(log.created_at) %> ago
+                </p>
+              </div>
+              
+              <p class="text-sm text-gray-600 mt-1">
+                <%= log.message %>
+              </p>
+              
+              <% if log.details.present? %>
+                <div class="mt-2">
+                  <details class="text-xs">
+                    <summary class="cursor-pointer text-gray-500 hover:text-gray-700">
+                      View Details
+                    </summary>
+                    <pre class="mt-2 p-2 bg-gray-50 rounded text-xs overflow-x-auto"><%= JSON.pretty_generate(log.details) %></pre>
+                  </details>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      <% else %>
+        <div class="px-6 py-8 text-center">
+          <p class="text-gray-500">No activity logs found.</p>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<script>
+function clearLogs() {
+  if (confirm('Are you sure you want to clear all activity logs? This action cannot be undone.')) {
+    fetch('/activity_logs/clear', {
+      method: 'DELETE',
+      headers: {
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        alert('Error clearing logs: ' + (data.message || 'Unknown error'));
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Error clearing logs');
+    });
+  }
+}
+
+function refreshLogs() {
+  location.reload();
+}
+</script>
